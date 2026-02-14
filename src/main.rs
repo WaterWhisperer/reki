@@ -10,7 +10,7 @@ use event::EventHandler;
 use ui::Tui;
 
 fn main() -> Result<()> {
-    let mut app = App::new();
+    let mut app = App::new()?;
     let mut tui = Tui::new()?;
     tui.enter()?;
 
