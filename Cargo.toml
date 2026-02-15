@@ -2,6 +2,9 @@
 name = "reki"
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "A blazingly fast and aesthetic git log viewer"
+repository = "https://github.com/WaterWhisperer/reki"
 
 [dependencies]
 ratatui = "0.30"
