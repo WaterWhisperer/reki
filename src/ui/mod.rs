@@ -7,12 +7,7 @@ use crossterm::{
     execute,
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::{
-    Frame, Terminal,
-    prelude::CrosstermBackend,
-    style::{Color, Style},
-    widgets::{Block, Borders, Paragraph},
-};
+use ratatui::{Frame, Terminal, prelude::CrosstermBackend};
 
 use crate::app::App;
 
@@ -56,12 +51,7 @@ impl Tui {
 }
 
 /// Render the entire UI.
-fn render(frame: &mut Frame, _app: &App) {
+fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
-    let block = Block::default()
-        .title(" reki ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
-    let paragraph = Paragraph::new("Press 'q' to quit.").block(block);
-    frame.render_widget(paragraph, area);
+    log_view::render(frame, app, area);
 }

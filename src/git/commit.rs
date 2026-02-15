@@ -13,7 +13,6 @@ pub struct CommitInfo {
 
 impl CommitInfo {
     /// Abbreviated hash (first 7 chars).
-    #[expect(dead_code)]
     pub fn short_hash(&self) -> String {
         self.id.to_string()[..7].to_string()
     }

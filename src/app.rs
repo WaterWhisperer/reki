@@ -13,6 +13,8 @@ pub struct App {
     pub commits: Vec<CommitInfo>,
     /// Whether all commits have been loaded.
     pub all_loaded: bool,
+    /// Currently selected commit index.
+    pub selected: usize,
 }
 
 impl App {
@@ -24,6 +26,7 @@ impl App {
             repo,
             commits: Vec::new(),
             all_loaded: false,
+            selected: 0,
         };
         app.load_more_commits()?;
         Ok(app)
@@ -47,7 +50,18 @@ impl App {
     pub fn handle_event(&mut self, event: KeyEvent) {
         match event.code {
             KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
+            KeyCode::Char('j') | KeyCode::Down => self.move_down(1),
+            KeyCode::Char('k') | KeyCode::Up => self.move_up(1),
             _ => {}
         }
+    }
+
+    fn move_down(&mut self, n: usize) {
+        let max = self.commits.len().saturating_sub(1);
+        self.selected = (self.selected + n).min(max);
+    }
+
+    fn move_up(&mut self, n: usize) {
+        self.selected = self.selected.saturating_sub(n);
     }
 }
