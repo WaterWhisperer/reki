@@ -1,5 +1,5 @@
 use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::git::{CommitInfo, Repo};
 
@@ -40,7 +40,7 @@ impl App {
         if self.all_loaded {
             return Ok(());
         }
-        let batch = self.repo.load_commits(self.commits.len())?;
+        let batch = self.repo.load_commits()?;
         if batch.is_empty() {
             self.all_loaded = true;
         } else {
@@ -59,20 +59,14 @@ impl App {
             KeyCode::Char('k') | KeyCode::Up => self.move_up(1),
 
             // Page movement.
-            KeyCode::PageDown => self.move_down(self.page_height),
-            KeyCode::PageUp => self.move_up(self.page_height),
-            KeyCode::Char('f') if event.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.move_down(self.page_height);
-            }
-            KeyCode::Char('b') if event.modifiers.contains(KeyModifiers::CONTROL) => {
+            KeyCode::Char(' ') | KeyCode::PageDown => self.move_down(self.page_height),
+            KeyCode::Char('-') | KeyCode::Char('a') | KeyCode::PageUp => {
                 self.move_up(self.page_height);
             }
 
             // Jump to top / bottom.
             KeyCode::Char('g') | KeyCode::Home => self.selected = 0,
-            KeyCode::Char('G') | KeyCode::End => {
-                self.selected = self.commits.len().saturating_sub(1);
-            }
+            KeyCode::Char('G') | KeyCode::End => self.jump_to_end(),
 
             _ => {}
         }
@@ -81,9 +75,27 @@ impl App {
     fn move_down(&mut self, n: usize) {
         let max = self.commits.len().saturating_sub(1);
         self.selected = (self.selected + n).min(max);
+        self.maybe_load_more();
     }
 
     fn move_up(&mut self, n: usize) {
         self.selected = self.selected.saturating_sub(n);
+    }
+
+    /// When the cursor is within one page of the end, load more commits.
+    fn maybe_load_more(&mut self) {
+        if !self.all_loaded && self.selected + self.page_height >= self.commits.len() {
+            let _ = self.load_more_commits();
+        }
+    }
+
+    /// Jump to the very last commit, loading all remaining if needed.
+    fn jump_to_end(&mut self) {
+        while !self.all_loaded {
+            if self.load_more_commits().is_err() {
+                break;
+            }
+        }
+        self.selected = self.commits.len().saturating_sub(1);
     }
 }

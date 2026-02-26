@@ -1,6 +1,6 @@
 use std::fmt;
 
-use time::{OffsetDateTime, UtcOffset, format_description};
+use time::{OffsetDateTime, UtcOffset, macros::format_description};
 
 /// Type of a git reference for display purposes.
 #[derive(Clone, Debug)]
@@ -41,15 +41,17 @@ pub struct CommitInfo {
 impl CommitInfo {
     /// Format the commit time as "YYYY-MM-DD HH:MM" in the local timezone.
     pub fn formatted_time(&self) -> String {
+        const FMT: &[time::format_description::BorrowedFormatItem<'_>] =
+            format_description!("[year]-[month]-[day] [hour]:[minute]");
+
         let Ok(utc) = OffsetDateTime::from_unix_timestamp(self.time) else {
             return String::from("????-??-?? ??:??");
         };
         let local_offset = UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC);
         let local = utc.to_offset(local_offset);
-        let Ok(fmt) = format_description::parse("[year]-[month]-[day] [hour]:[minute]") else {
-            return String::from("????-??-?? ??:??");
-        };
-        local.format(&fmt).unwrap_or_else(|_| String::from("????-??-?? ??:??"))
+        local
+            .format(&FMT)
+            .unwrap_or_else(|_| String::from("????-??-?? ??:??"))
     }
 }
 

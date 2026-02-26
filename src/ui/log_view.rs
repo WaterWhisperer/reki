@@ -37,11 +37,14 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
             spans.push(Span::raw(" "));
 
             // Author (truncated to display width, padded).
-            let (truncated, truncated_width) =
-                c.author.unicode_truncate(AUTHOR_MAX_WIDTH);
+            let (truncated, truncated_width) = c.author.unicode_truncate(AUTHOR_MAX_WIDTH);
             let padding = AUTHOR_MAX_WIDTH - truncated_width;
             let author_display = if truncated.len() < c.author.len() {
-                format!("{truncated}\u{2026}{:>w$}", "", w = padding.saturating_sub(1))
+                format!(
+                    "{truncated}\u{2026}{:>w$}",
+                    "",
+                    w = padding.saturating_sub(1)
+                )
             } else {
                 format!("{truncated}{:>w$}", "", w = padding)
             };
@@ -66,10 +69,7 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
             }
 
             // Summary.
-            spans.push(Span::styled(
-                &c.summary,
-                Style::default().fg(Color::Reset),
-            ));
+            spans.push(Span::styled(&c.summary, Style::default().fg(Color::Reset)));
 
             ListItem::new(Line::from(spans))
         })

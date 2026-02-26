@@ -13,6 +13,8 @@ pub struct Repo {
     inner: git2::Repository,
     /// Mapping from commit Oid to its reference decorations.
     ref_map: HashMap<git2::Oid, Vec<RefDecoration>>,
+    /// Number of commits already yielded (to resume revwalk without re-skipping).
+    loaded_count: usize,
 }
 
 impl Repo {
@@ -20,23 +22,25 @@ impl Repo {
     pub fn open(path: &std::path::Path) -> Result<Self> {
         let inner = git2::Repository::discover(path)?;
         let ref_map = Self::build_ref_map(&inner)?;
-        Ok(Self { inner, ref_map })
+        Ok(Self {
+            inner,
+            ref_map,
+            loaded_count: 0,
+        })
     }
 
     /// Rebuild the ref decoration map by iterating all references.
-    fn build_ref_map(
-        repo: &git2::Repository,
-    ) -> Result<HashMap<git2::Oid, Vec<RefDecoration>>> {
+    fn build_ref_map(repo: &git2::Repository) -> Result<HashMap<git2::Oid, Vec<RefDecoration>>> {
         let mut map: HashMap<git2::Oid, Vec<RefDecoration>> = HashMap::new();
 
         // Mark HEAD.
-        if let Ok(head) = repo.head() {
-            if let Some(oid) = head.target() {
-                map.entry(oid).or_default().push(RefDecoration {
-                    name: "HEAD".to_string(),
-                    kind: RefKind::Head,
-                });
-            }
+        if let Ok(head) = repo.head()
+            && let Some(oid) = head.target()
+        {
+            map.entry(oid).or_default().push(RefDecoration {
+                name: "HEAD".to_string(),
+                kind: RefKind::Head,
+            });
         }
 
         // Iterate all references.
@@ -75,21 +79,25 @@ impl Repo {
         Ok(map)
     }
 
-    /// Load commits starting from HEAD.
-    /// `skip` — number of commits already loaded (to skip).
-    /// Returns up to `BATCH_SIZE` commits.
-    pub fn load_commits(&self, skip: usize) -> Result<Vec<CommitInfo>> {
+    /// Load the next batch of commits incrementally.
+    /// Returns up to `BATCH_SIZE` commits starting from where the last call left off.
+    pub fn load_commits(&mut self) -> Result<Vec<CommitInfo>> {
         let mut revwalk = self.inner.revwalk()?;
         revwalk.push_head()?;
         revwalk.set_sorting(Sort::TIME)?;
 
         let commits: Vec<CommitInfo> = revwalk
-            .skip(skip)
+            .skip(self.loaded_count)
             .take(BATCH_SIZE)
             .filter_map(|oid| oid.ok())
             .filter_map(|oid| {
                 let commit = self.inner.find_commit(oid).ok()?;
-                let refs = self.ref_map.get(&oid).cloned().unwrap_or_default();
+                let refs = self
+                    .ref_map
+                    .get(&oid)
+                    .map(|v| v.as_slice())
+                    .unwrap_or_default()
+                    .to_vec();
                 Some(CommitInfo {
                     id: oid,
                     summary: commit.summary().unwrap_or("").to_string(),
@@ -100,6 +108,7 @@ impl Repo {
             })
             .collect();
 
+        self.loaded_count += commits.len();
         Ok(commits)
     }
 }
