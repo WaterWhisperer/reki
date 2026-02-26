@@ -92,6 +92,7 @@ impl Repo {
             .filter_map(|oid| oid.ok())
             .filter_map(|oid| {
                 let commit = self.inner.find_commit(oid).ok()?;
+                let parent_ids: Vec<git2::Oid> = commit.parent_ids().collect();
                 let refs = self
                     .ref_map
                     .get(&oid)
@@ -100,6 +101,7 @@ impl Repo {
                     .to_vec();
                 Some(CommitInfo {
                     id: oid,
+                    parent_ids,
                     summary: commit.summary().unwrap_or("").to_string(),
                     author: commit.author().name().unwrap_or("unknown").to_string(),
                     time: commit.time().seconds(),

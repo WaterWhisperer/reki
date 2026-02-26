@@ -28,6 +28,8 @@ pub struct RefDecoration {
 pub struct CommitInfo {
     /// Full commit hash (hex).
     pub id: git2::Oid,
+    /// Parent commit IDs.
+    pub parent_ids: Vec<git2::Oid>,
     /// Commit summary (first line of message).
     pub summary: String,
     /// Author name.

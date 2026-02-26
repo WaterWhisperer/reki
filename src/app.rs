@@ -1,7 +1,7 @@
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 
-use crate::git::{CommitInfo, Repo};
+use crate::git::{CommitInfo, Graph, Repo};
 
 /// App state management.
 pub struct App {
@@ -11,6 +11,10 @@ pub struct App {
     repo: Repo,
     /// Loaded commit list.
     pub commits: Vec<CommitInfo>,
+    /// Rendered graph line per commit (parallel to `commits`).
+    pub graph_lines: Vec<String>,
+    /// Lane-tracking state for the ASCII graph.
+    graph: Graph,
     /// Whether all commits have been loaded.
     pub all_loaded: bool,
     /// Currently selected commit index.
@@ -27,6 +31,8 @@ impl App {
             should_quit: false,
             repo,
             commits: Vec::new(),
+            graph_lines: Vec::new(),
+            graph: Graph::new(),
             all_loaded: false,
             selected: 0,
             page_height: 20,
@@ -44,6 +50,10 @@ impl App {
         if batch.is_empty() {
             self.all_loaded = true;
         } else {
+            for c in &batch {
+                let line = self.graph.next_row(c.id, &c.parent_ids);
+                self.graph_lines.push(line);
+            }
             self.commits.extend(batch);
         }
         Ok(())

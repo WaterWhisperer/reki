@@ -16,11 +16,32 @@ const AUTHOR_MAX_WIDTH: usize = 16;
 
 /// Render the log view (commit list) into the given area.
 pub fn render(frame: &mut Frame, app: &App, area: Rect) {
+    // Widest graph string — used to pad shorter rows for column alignment.
+    let graph_max_width = app.graph_lines.iter().map(String::len).max().unwrap_or(0);
+
     let items: Vec<ListItem> = app
         .commits
         .iter()
-        .map(|c| {
-            let mut spans = Vec::with_capacity(10);
+        .enumerate()
+        .map(|(idx, c)| {
+            let mut spans = Vec::with_capacity(12);
+
+            // Graph column.
+            let graph_str = app.graph_lines.get(idx).map_or("", String::as_str);
+            for ch in graph_str.chars() {
+                let style = match ch {
+                    '*' => Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD),
+                    '|' => Style::default().fg(Color::DarkGray),
+                    _ => Style::default(),
+                };
+                spans.push(Span::styled(String::from(ch), style));
+            }
+            let pad = graph_max_width.saturating_sub(graph_str.len());
+            if pad > 0 {
+                spans.push(Span::raw(" ".repeat(pad)));
+            }
 
             // Hash (7 chars).
             spans.push(Span::styled(
