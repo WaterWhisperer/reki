@@ -5,6 +5,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState},
 };
+use unicode_truncate::UnicodeTruncateStr;
 
 use crate::app::App;
 use crate::git::RefKind;
@@ -21,9 +22,9 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         .map(|c| {
             let mut spans = Vec::with_capacity(10);
 
-            // Hash.
+            // Hash (7 chars).
             spans.push(Span::styled(
-                c.short_hash(),
+                format!("{:.7}", c.id),
                 Style::default().fg(Color::Yellow),
             ));
             spans.push(Span::raw(" "));
@@ -35,27 +36,28 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
             ));
             spans.push(Span::raw(" "));
 
-            // Author (truncated + padded).
-            let author_display = truncate_str(&c.author, AUTHOR_MAX_WIDTH);
+            // Author (truncated to display width, padded).
+            let (truncated, truncated_width) =
+                c.author.unicode_truncate(AUTHOR_MAX_WIDTH);
+            let padding = AUTHOR_MAX_WIDTH - truncated_width;
+            let author_display = if truncated.len() < c.author.len() {
+                format!("{truncated}\u{2026}{:>w$}", "", w = padding.saturating_sub(1))
+            } else {
+                format!("{truncated}{:>w$}", "", w = padding)
+            };
             spans.push(Span::styled(
-                format!("{:<w$}", author_display, w = AUTHOR_MAX_WIDTH),
+                author_display,
                 Style::default().fg(Color::Blue),
             ));
             spans.push(Span::raw(" "));
 
             // Ref decorations.
             for r in &c.refs {
-                let (color, prefix, suffix) = match r.kind {
-                    RefKind::Head => (Color::Cyan, "HEAD", ""),
-                    RefKind::Branch => (Color::Green, "", ""),
-                    RefKind::Remote => (Color::Red, "", ""),
-                    RefKind::Tag => (Color::Yellow, "🏷 ", ""),
-                };
-                let _ = (prefix, suffix); // suppress unused for tag prefix used below
-                let label = match r.kind {
-                    RefKind::Head => "HEAD".to_string(),
-                    RefKind::Tag => format!("🏷 {}", r.name),
-                    _ => r.name.clone(),
+                let (color, label) = match r.kind {
+                    RefKind::Head => (Color::Cyan, "HEAD".to_string()),
+                    RefKind::Branch => (Color::Green, r.name.clone()),
+                    RefKind::Remote => (Color::Red, r.name.clone()),
+                    RefKind::Tag => (Color::Yellow, format!("\u{1f3f7} {}", r.name)),
                 };
                 spans.push(Span::styled(
                     format!("({label}) "),
@@ -88,20 +90,10 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
                 .bg(Color::DarkGray)
                 .add_modifier(Modifier::BOLD),
         )
-        .highlight_symbol("▸ ");
+        .highlight_symbol("\u{25b8} ");
 
     let mut state = ListState::default();
     state.select(Some(app.selected));
 
     frame.render_stateful_widget(list, area, &mut state);
-}
-
-/// Truncate a string to at most `max_width` characters, appending "…" if truncated.
-fn truncate_str(s: &str, max_width: usize) -> String {
-    if s.chars().count() <= max_width {
-        s.to_string()
-    } else {
-        let truncated: String = s.chars().take(max_width - 1).collect();
-        format!("{truncated}…")
-    }
 }

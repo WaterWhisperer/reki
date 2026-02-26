@@ -42,7 +42,7 @@ impl Tui {
     }
 
     /// Draw the UI.
-    pub fn draw(&mut self, app: &App) -> Result<()> {
+    pub fn draw(&mut self, app: &mut App) -> Result<()> {
         self.terminal.draw(|frame| {
             render(frame, app);
         })?;
@@ -51,7 +51,9 @@ impl Tui {
 }
 
 /// Render the entire UI.
-fn render(frame: &mut Frame, app: &App) {
+fn render(frame: &mut Frame, app: &mut App) {
     let area = frame.area();
+    // Update page_height: area height minus 2 for the border.
+    app.page_height = (area.height as usize).saturating_sub(2);
     log_view::render(frame, app, area);
 }

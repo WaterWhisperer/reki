@@ -1,5 +1,5 @@
 use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::git::{CommitInfo, Repo};
 
@@ -15,6 +15,8 @@ pub struct App {
     pub all_loaded: bool,
     /// Currently selected commit index.
     pub selected: usize,
+    /// Visible rows in the log viewport (set by UI on each draw).
+    pub page_height: usize,
 }
 
 impl App {
@@ -27,6 +29,7 @@ impl App {
             commits: Vec::new(),
             all_loaded: false,
             selected: 0,
+            page_height: 20,
         };
         app.load_more_commits()?;
         Ok(app)
@@ -50,8 +53,27 @@ impl App {
     pub fn handle_event(&mut self, event: KeyEvent) {
         match event.code {
             KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
+
+            // Single-line movement.
             KeyCode::Char('j') | KeyCode::Down => self.move_down(1),
             KeyCode::Char('k') | KeyCode::Up => self.move_up(1),
+
+            // Page movement.
+            KeyCode::PageDown => self.move_down(self.page_height),
+            KeyCode::PageUp => self.move_up(self.page_height),
+            KeyCode::Char('f') if event.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.move_down(self.page_height);
+            }
+            KeyCode::Char('b') if event.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.move_up(self.page_height);
+            }
+
+            // Jump to top / bottom.
+            KeyCode::Char('g') | KeyCode::Home => self.selected = 0,
+            KeyCode::Char('G') | KeyCode::End => {
+                self.selected = self.commits.len().saturating_sub(1);
+            }
+
             _ => {}
         }
     }

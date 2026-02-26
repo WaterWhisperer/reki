@@ -1,4 +1,6 @@
-use chrono::{DateTime, Local, Utc};
+use std::fmt;
+
+use time::{OffsetDateTime, UtcOffset, format_description};
 
 /// Type of a git reference for display purposes.
 #[derive(Clone, Debug)]
@@ -37,17 +39,22 @@ pub struct CommitInfo {
 }
 
 impl CommitInfo {
-    /// Abbreviated hash (first 7 chars).
-    pub fn short_hash(&self) -> String {
-        self.id.to_string()[..7].to_string()
-    }
-
-    /// Format the commit time as "YYYY-MM-DD HH:MM".
+    /// Format the commit time as "YYYY-MM-DD HH:MM" in the local timezone.
     pub fn formatted_time(&self) -> String {
-        DateTime::<Utc>::from_timestamp(self.time, 0)
-            .unwrap_or_default()
-            .with_timezone(&Local)
-            .format("%Y-%m-%d %H:%M")
-            .to_string()
+        let Ok(utc) = OffsetDateTime::from_unix_timestamp(self.time) else {
+            return String::from("????-??-?? ??:??");
+        };
+        let local_offset = UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC);
+        let local = utc.to_offset(local_offset);
+        let Ok(fmt) = format_description::parse("[year]-[month]-[day] [hour]:[minute]") else {
+            return String::from("????-??-?? ??:??");
+        };
+        local.format(&fmt).unwrap_or_else(|_| String::from("????-??-?? ??:??"))
+    }
+}
+
+impl fmt::Display for CommitInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:.7} {}", self.id, self.summary)
     }
 }
