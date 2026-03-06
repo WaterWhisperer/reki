@@ -6,6 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState},
 };
 use unicode_truncate::UnicodeTruncateStr;
+use unicode_width::UnicodeWidthChar;
 
 use crate::app::App;
 use crate::git::RefKind;
@@ -90,9 +91,14 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
             }
 
             // Summary.
-            spans.push(Span::styled(&c.summary, Style::default().fg(Color::Reset)));
+            spans.push(Span::styled(
+                c.summary.clone(),
+                Style::default().fg(Color::Reset),
+            ));
 
-            ListItem::new(Line::from(spans))
+            // Apply horizontal scroll.
+            let clipped = scroll_spans(spans, app.scroll_x);
+            ListItem::new(Line::from(clipped))
         })
         .collect();
 
@@ -117,4 +123,27 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
     state.select(Some(app.selected));
 
     frame.render_stateful_widget(list, area, &mut state);
+}
+
+/// Remove the first `offset` display columns from a sequence of spans.
+fn scroll_spans(spans: Vec<Span<'_>>, offset: usize) -> Vec<Span<'static>> {
+    let mut result = Vec::new();
+    let mut col = 0;
+
+    for span in spans {
+        let style = span.style;
+        let mut buf = String::new();
+        for ch in span.content.chars() {
+            let w = ch.width().unwrap_or(0);
+            if col >= offset {
+                buf.push(ch);
+            }
+            col += w;
+        }
+        if !buf.is_empty() {
+            result.push(Span::styled(buf, style));
+        }
+    }
+
+    result
 }

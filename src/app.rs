@@ -21,6 +21,8 @@ pub struct App {
     pub selected: usize,
     /// Visible rows in the log viewport (set by UI on each draw).
     pub page_height: usize,
+    /// Horizontal scroll offset (display columns).
+    pub scroll_x: usize,
 }
 
 impl App {
@@ -36,6 +38,7 @@ impl App {
             all_loaded: false,
             selected: 0,
             page_height: 20,
+            scroll_x: 0,
         };
         app.load_more_commits()?;
         Ok(app)
@@ -74,6 +77,10 @@ impl App {
                 self.move_up(self.page_height);
             }
 
+            // Horizontal scroll.
+            KeyCode::Char('h') | KeyCode::Left => self.scroll_left(2),
+            KeyCode::Char('l') | KeyCode::Right => self.scroll_right(2),
+
             // Jump to top / bottom.
             KeyCode::Char('g') | KeyCode::Home => self.selected = 0,
             KeyCode::Char('G') | KeyCode::End => self.jump_to_end(),
@@ -90,6 +97,14 @@ impl App {
 
     fn move_up(&mut self, n: usize) {
         self.selected = self.selected.saturating_sub(n);
+    }
+
+    fn scroll_right(&mut self, n: usize) {
+        self.scroll_x += n;
+    }
+
+    fn scroll_left(&mut self, n: usize) {
+        self.scroll_x = self.scroll_x.saturating_sub(n);
     }
 
     /// When the cursor is within one page of the end, load more commits.
