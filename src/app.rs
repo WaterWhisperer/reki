@@ -21,8 +21,10 @@ pub struct App {
     pub selected: usize,
     /// Visible rows in the log viewport (set by UI on each draw).
     pub page_height: usize,
-    /// Horizontal scroll offset (display columns).
+    /// Horizontal scroll offset in display columns.
     pub scroll_x: usize,
+    /// Upper bound for scroll_x (set by UI each frame).
+    pub max_scroll_x: usize,
 }
 
 impl App {
@@ -39,6 +41,7 @@ impl App {
             selected: 0,
             page_height: 20,
             scroll_x: 0,
+            max_scroll_x: 0,
         };
         app.load_more_commits()?;
         Ok(app)
@@ -100,7 +103,7 @@ impl App {
     }
 
     fn scroll_right(&mut self, n: usize) {
-        self.scroll_x += n;
+        self.scroll_x = (self.scroll_x + n).min(self.max_scroll_x);
     }
 
     fn scroll_left(&mut self, n: usize) {
