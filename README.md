@@ -1,16 +1,17 @@
 # Reki
 
-A blazingly fast git log viewer for the terminal, written in Rust.
+Reki is a fast, read-only Git log browser for the terminal, written in Rust.
 
 > **Work In Progress** — not yet ready for daily use.
 
 Inspired by [tig](https://github.com/jonas/tig), [yazi](https://github.com/sxyazi/yazi), and [lazygit](https://github.com/jesseduffield/lazygit).
 
-## Features (planned)
+## V1 Direction
 
-- **Extreme performance** — incremental loading, large repos open instantly
-- **Aesthetic commit graph** — beautiful branch visualization
-- **Minimal & information-dense** — one commit per line, efficient use of screen space
+- **Tig-like graph fidelity** for common branches, merges, tags, and refs.
+- **Responsive browsing** with a dense single-pane commit log.
+- **Read-only safety**: no staging, checkout, reset, or repository mutation in v1.
+- **Commit inspect view** opened from the log, focused on metadata and diffstat.
 
 ## Usage
 
@@ -34,6 +35,16 @@ git clone https://github.com/WaterWhisperer/reki.git
 cd reki
 cargo build --release
 ```
+
+## Development
+
+```sh
+cargo fmt -- --check
+cargo clippy -- -D warnings
+cargo test
+```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) and [ROADMAP.md](ROADMAP.md) for the current redesign plan.
 
 ## License
 
