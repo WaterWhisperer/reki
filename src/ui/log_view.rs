@@ -9,7 +9,7 @@ use unicode_truncate::UnicodeTruncateStr;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::app::App;
-use crate::git::{CommitInfo, RefKind};
+use crate::model::{CommitRow, RefKind};
 
 /// Fixed column widths for alignment.
 const DATE_WIDTH: usize = 16; // "YYYY-MM-DD HH:MM"
@@ -17,16 +17,17 @@ const AUTHOR_MAX_WIDTH: usize = 16;
 
 /// Render the log view into the given area.
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
-    let graph_max_width = app.graph_lines.iter().map(String::len).max().unwrap_or(0);
+    let graph_max_width = app
+        .rows
+        .iter()
+        .map(|row| row.graph.len())
+        .max()
+        .unwrap_or(0);
 
     let rows: Vec<Vec<Span<'static>>> = app
-        .commits
+        .rows
         .iter()
-        .enumerate()
-        .map(|(idx, c)| {
-            let graph_str = app.graph_lines.get(idx).map_or("", String::as_str);
-            build_commit_line(c, graph_str, graph_max_width)
-        })
+        .map(|row| build_commit_line(row, graph_max_width))
         .collect();
 
     // Clamp horizontal scroll to content bounds.
@@ -47,7 +48,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
-    let title = format!(" Log ({}) ", app.commits.len());
+    let title = format!(" Log ({}) ", app.rows.len());
 
     let list = List::new(items)
         .block(
@@ -69,15 +70,11 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
 }
 
 /// Build styled spans for a single commit row.
-fn build_commit_line(
-    c: &CommitInfo,
-    graph_str: &str,
-    graph_max_width: usize,
-) -> Vec<Span<'static>> {
+fn build_commit_line(row: &CommitRow, graph_max_width: usize) -> Vec<Span<'static>> {
     let mut spans = Vec::with_capacity(12);
 
     // Graph.
-    for ch in graph_str.chars() {
+    for ch in row.graph.chars() {
         let style = match ch {
             '*' => Style::default()
                 .fg(Color::White)
@@ -87,29 +84,29 @@ fn build_commit_line(
         };
         spans.push(Span::styled(String::from(ch), style));
     }
-    let pad = graph_max_width.saturating_sub(graph_str.len());
+    let pad = graph_max_width.saturating_sub(row.graph.len());
     if pad > 0 {
         spans.push(Span::raw(" ".repeat(pad)));
     }
 
     // Hash.
     spans.push(Span::styled(
-        format!("{:.7}", c.id),
+        row.id.short().to_string(),
         Style::default().fg(Color::Yellow),
     ));
     spans.push(Span::raw(" "));
 
     // Date.
     spans.push(Span::styled(
-        format!("{:<w$}", c.formatted_time(), w = DATE_WIDTH),
+        format!("{:<w$}", row.formatted_time(), w = DATE_WIDTH),
         Style::default().fg(Color::Green),
     ));
     spans.push(Span::raw(" "));
 
     // Author (truncated, padded).
-    let (truncated, truncated_width) = c.author.unicode_truncate(AUTHOR_MAX_WIDTH);
+    let (truncated, truncated_width) = row.author.unicode_truncate(AUTHOR_MAX_WIDTH);
     let padding = AUTHOR_MAX_WIDTH - truncated_width;
-    let author_display = if truncated.len() < c.author.len() {
+    let author_display = if truncated.len() < row.author.len() {
         format!(
             "{truncated}\u{2026}{:>w$}",
             "",
@@ -125,7 +122,7 @@ fn build_commit_line(
     spans.push(Span::raw(" "));
 
     // Ref decorations.
-    for r in &c.refs {
+    for r in &row.refs {
         let (color, label) = match r.kind {
             RefKind::Head => (Color::Cyan, "HEAD".to_string()),
             RefKind::Branch => (Color::Green, r.name.clone()),
@@ -140,7 +137,7 @@ fn build_commit_line(
 
     // Summary.
     spans.push(Span::styled(
-        c.summary.clone(),
+        row.summary.clone(),
         Style::default().fg(Color::Reset),
     ));
 

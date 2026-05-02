@@ -1,7 +1,8 @@
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 
-use crate::git::{CommitInfo, Graph, Repo};
+use crate::git::{Graph, Repo};
+use crate::model::CommitRow;
 
 /// App state management.
 pub struct App {
@@ -9,10 +10,8 @@ pub struct App {
     pub should_quit: bool,
     /// Git repository handle.
     repo: Repo,
-    /// Loaded commit list.
-    pub commits: Vec<CommitInfo>,
-    /// Rendered graph line per commit (parallel to `commits`).
-    pub graph_lines: Vec<String>,
+    /// Loaded commit rows ready for UI/state consumption.
+    pub rows: Vec<CommitRow>,
     /// Lane-tracking state for the ASCII graph.
     graph: Graph,
     /// Whether all commits have been loaded.
@@ -39,8 +38,7 @@ impl App {
         let mut app = Self {
             should_quit: false,
             repo,
-            commits: Vec::new(),
-            graph_lines: Vec::new(),
+            rows: Vec::new(),
             graph: Graph::new(),
             all_loaded: false,
             selected: 0,
@@ -63,9 +61,8 @@ impl App {
         } else {
             for c in &batch {
                 let line = self.graph.next_row(c.id, &c.parent_ids);
-                self.graph_lines.push(line);
+                self.rows.push(c.to_row(line));
             }
-            self.commits.extend(batch);
         }
         Ok(())
     }
@@ -98,7 +95,7 @@ impl App {
     }
 
     fn move_down(&mut self, n: usize) {
-        let max = self.commits.len().saturating_sub(1);
+        let max = self.rows.len().saturating_sub(1);
         self.selected = (self.selected + n).min(max);
         self.maybe_load_more();
     }
@@ -117,7 +114,7 @@ impl App {
 
     /// When the cursor is within one page of the end, load more commits.
     fn maybe_load_more(&mut self) {
-        if !self.all_loaded && self.selected + self.page_height >= self.commits.len() {
+        if !self.all_loaded && self.selected + self.page_height >= self.rows.len() {
             let _ = self.load_more_commits();
         }
     }
@@ -129,6 +126,6 @@ impl App {
                 break;
             }
         }
-        self.selected = self.commits.len().saturating_sub(1);
+        self.selected = self.rows.len().saturating_sub(1);
     }
 }
