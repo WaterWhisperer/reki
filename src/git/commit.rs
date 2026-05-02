@@ -29,9 +29,9 @@ pub struct RefDecoration {
 /// Represents a single git commit with the information needed to display.
 pub struct CommitInfo {
     /// Full commit hash (hex).
-    pub id: git2::Oid,
+    pub id: CommitId,
     /// Parent commit IDs.
-    pub parent_ids: Vec<git2::Oid>,
+    pub parent_ids: Vec<CommitId>,
     /// Commit summary (first line of message).
     pub summary: String,
     /// Author name.
@@ -45,12 +45,8 @@ pub struct CommitInfo {
 impl CommitInfo {
     pub fn to_row(&self, graph: String) -> CommitRow {
         CommitRow {
-            id: CommitId::new(self.id.to_string()),
-            parent_ids: self
-                .parent_ids
-                .iter()
-                .map(|id| CommitId::new(id.to_string()))
-                .collect(),
+            id: self.id.clone(),
+            parent_ids: self.parent_ids.clone(),
             graph,
             summary: self.summary.clone(),
             author: self.author.clone(),
@@ -84,7 +80,7 @@ impl CommitInfo {
 
 impl fmt::Display for CommitInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:.7} {}", self.id, self.summary)
+        write!(f, "{} {}", self.id.short(), self.summary)
     }
 }
 
@@ -102,19 +98,15 @@ impl From<&RefKind> for RowRefKind {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::CommitId;
-
-    fn oid(byte: u8) -> git2::Oid {
-        let mut bytes = [0u8; 20];
-        bytes[0] = byte;
-        git2::Oid::from_bytes(&bytes).unwrap()
-    }
 
     #[test]
     fn commit_info_converts_to_backend_neutral_row() {
         let commit = CommitInfo {
-            id: oid(1),
-            parent_ids: vec![oid(2), oid(3)],
+            id: CommitId::new("1111111111111111111111111111111111111111"),
+            parent_ids: vec![
+                CommitId::new("2222222222222222222222222222222222222222"),
+                CommitId::new("3333333333333333333333333333333333333333"),
+            ],
             summary: "add graph".to_string(),
             author: "Ada".to_string(),
             time: 42,
@@ -132,14 +124,8 @@ mod tests {
 
         let row = commit.to_row("* | ".to_string());
 
-        assert_eq!(row.id, CommitId::new(commit.id.to_string()));
-        assert_eq!(
-            row.parent_ids,
-            vec![
-                CommitId::new(oid(2).to_string()),
-                CommitId::new(oid(3).to_string())
-            ]
-        );
+        assert_eq!(row.id, commit.id);
+        assert_eq!(row.parent_ids, commit.parent_ids);
         assert_eq!(row.graph, "* | ");
         assert_eq!(row.summary, "add graph");
         assert_eq!(row.author, "Ada");

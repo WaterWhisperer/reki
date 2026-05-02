@@ -4,6 +4,7 @@ use anyhow::Result;
 use git2::Sort;
 
 use super::commit::{CommitInfo, RefDecoration, RefKind};
+use crate::model::CommitId;
 
 /// Default batch size for incremental commit loading.
 const BATCH_SIZE: usize = 200;
@@ -92,7 +93,10 @@ impl Repo {
             .filter_map(|oid| oid.ok())
             .filter_map(|oid| {
                 let commit = self.inner.find_commit(oid).ok()?;
-                let parent_ids: Vec<git2::Oid> = commit.parent_ids().collect();
+                let parent_ids: Vec<CommitId> = commit
+                    .parent_ids()
+                    .map(|id| CommitId::new(id.to_string()))
+                    .collect();
                 let refs = self
                     .ref_map
                     .get(&oid)
@@ -100,7 +104,7 @@ impl Repo {
                     .unwrap_or_default()
                     .to_vec();
                 Some(CommitInfo {
-                    id: oid,
+                    id: CommitId::new(oid.to_string()),
                     parent_ids,
                     summary: commit.summary().unwrap_or("").to_string(),
                     author: commit.author().name().unwrap_or("unknown").to_string(),
