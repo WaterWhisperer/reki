@@ -1,7 +1,8 @@
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 
-use crate::git::{Graph, Repo};
+use crate::git::Repo;
+use crate::graph::Graph;
 use crate::state::{Action, AppState, LoadStatus};
 
 /// App state management.
@@ -26,7 +27,7 @@ impl App {
         let mut app = Self {
             state: AppState::default(),
             repo,
-            graph: Graph::new(),
+            graph: Graph::default(),
         };
         app.load_more_commits()?;
         Ok(app)
@@ -43,8 +44,9 @@ impl App {
         let rows = batch
             .iter()
             .map(|c| {
-                let line = self.graph.next_row(c.id, &c.parent_ids);
-                c.to_row(line)
+                let mut row = c.to_row(String::new());
+                row.graph = self.graph.next_row(&row.id, &row.parent_ids).text;
+                row
             })
             .collect();
         self.state.apply(Action::CommitBatchLoaded {
