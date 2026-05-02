@@ -9,7 +9,7 @@ repository  = "https://github.com/WaterWhisperer/reki"
 [dependencies]
 ratatui          = "0.30"
 crossterm        = "0.29"
-git2             = "0.20"
+gix              = "0.83"
 anyhow           = "1"
 time             = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
 unicode-truncate = "2.0"
