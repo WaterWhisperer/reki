@@ -1,16 +1,12 @@
-mod app;
-mod event;
-mod git;
-mod ui;
-
 use anyhow::Result;
-
-use app::App;
-use event::EventHandler;
-use ui::Tui;
+use reki::{app::App, cli::Args, event::EventHandler, ui::Tui};
 
 fn main() -> Result<()> {
-    let mut app = App::new()?;
+    let args = Args::parse_from(std::env::args()).map_err(|err| anyhow::anyhow!("{err:?}"))?;
+    let mut app = match args.repo_path {
+        Some(path) => App::new_at(&path)?,
+        None => App::new()?,
+    };
     let mut tui = Tui::new()?;
     tui.enter()?;
 

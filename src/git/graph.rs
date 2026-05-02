@@ -9,6 +9,12 @@ pub struct Graph {
     columns: Vec<Oid>,
 }
 
+impl Default for Graph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Graph {
     pub fn new() -> Self {
         Self {

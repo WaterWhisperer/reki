@@ -30,7 +30,12 @@ pub struct App {
 impl App {
     /// Create a new App by opening the repo at the current directory.
     pub fn new() -> Result<Self> {
-        let repo = Repo::open(&std::env::current_dir()?)?;
+        Self::new_at(&std::env::current_dir()?)
+    }
+
+    /// Create a new App by discovering a repo from the provided path.
+    pub fn new_at(path: &std::path::Path) -> Result<Self> {
+        let repo = Repo::open(path)?;
         let mut app = Self {
             should_quit: false,
             repo,
