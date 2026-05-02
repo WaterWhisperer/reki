@@ -2,28 +2,16 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::git::{Graph, Repo};
-use crate::model::CommitRow;
+use crate::state::{Action, AppState, LoadStatus};
 
 /// App state management.
 pub struct App {
-    /// Whether the application should quit.
-    pub should_quit: bool,
+    /// Pure application state used by input handling and rendering.
+    pub state: AppState,
     /// Git repository handle.
     repo: Repo,
-    /// Loaded commit rows ready for UI/state consumption.
-    pub rows: Vec<CommitRow>,
     /// Lane-tracking state for the ASCII graph.
     graph: Graph,
-    /// Whether all commits have been loaded.
-    pub all_loaded: bool,
-    /// Currently selected commit index.
-    pub selected: usize,
-    /// Visible rows in the log viewport (set by UI on each draw).
-    pub page_height: usize,
-    /// Horizontal scroll offset in display columns.
-    pub scroll_x: usize,
-    /// Upper bound for scroll_x (set by UI each frame).
-    pub max_scroll_x: usize,
 }
 
 impl App {
@@ -36,15 +24,9 @@ impl App {
     pub fn new_at(path: &std::path::Path) -> Result<Self> {
         let repo = Repo::open(path)?;
         let mut app = Self {
-            should_quit: false,
+            state: AppState::default(),
             repo,
-            rows: Vec::new(),
             graph: Graph::new(),
-            all_loaded: false,
-            selected: 0,
-            page_height: 20,
-            scroll_x: 0,
-            max_scroll_x: 0,
         };
         app.load_more_commits()?;
         Ok(app)
@@ -52,80 +34,87 @@ impl App {
 
     /// Load the next batch of commits.
     pub fn load_more_commits(&mut self) -> Result<()> {
-        if self.all_loaded {
+        if self.state.load_status == LoadStatus::Complete {
             return Ok(());
         }
+        self.state.apply(Action::StartLoading);
+
         let batch = self.repo.load_commits()?;
-        if batch.is_empty() {
-            self.all_loaded = true;
-        } else {
-            for c in &batch {
+        let rows = batch
+            .iter()
+            .map(|c| {
                 let line = self.graph.next_row(c.id, &c.parent_ids);
-                self.rows.push(c.to_row(line));
-            }
-        }
+                c.to_row(line)
+            })
+            .collect();
+        self.state.apply(Action::CommitBatchLoaded {
+            rows,
+            all_loaded: batch.is_empty(),
+        });
         Ok(())
     }
 
     /// Handle a key event.
     pub fn handle_event(&mut self, event: KeyEvent) {
         match event.code {
-            KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
+            KeyCode::Char('q') | KeyCode::Esc => {
+                self.state.apply(Action::Quit);
+            }
 
             // Single-line movement.
             KeyCode::Char('j') | KeyCode::Down => self.move_down(1),
-            KeyCode::Char('k') | KeyCode::Up => self.move_up(1),
+            KeyCode::Char('k') | KeyCode::Up => {
+                self.state.apply(Action::MoveUp(1));
+            }
 
             // Page movement.
-            KeyCode::Char(' ') | KeyCode::PageDown => self.move_down(self.page_height),
+            KeyCode::Char(' ') | KeyCode::PageDown => self.move_down(self.state.page_height),
             KeyCode::Char('-') | KeyCode::Char('a') | KeyCode::PageUp => {
-                self.move_up(self.page_height);
+                self.state.apply(Action::MoveUp(self.state.page_height));
             }
 
             // Horizontal scroll.
-            KeyCode::Char('h') | KeyCode::Left => self.scroll_left(2),
-            KeyCode::Char('l') | KeyCode::Right => self.scroll_right(2),
+            KeyCode::Char('h') | KeyCode::Left => {
+                self.state.apply(Action::ScrollLeft(2));
+            }
+            KeyCode::Char('l') | KeyCode::Right => {
+                self.state.apply(Action::ScrollRight(2));
+            }
 
             // Jump to top / bottom.
-            KeyCode::Char('g') | KeyCode::Home => self.selected = 0,
+            KeyCode::Char('g') | KeyCode::Home => {
+                self.state.apply(Action::JumpTop);
+            }
             KeyCode::Char('G') | KeyCode::End => self.jump_to_end(),
+            KeyCode::Enter => {
+                self.state.apply(Action::OpenInspect);
+            }
 
             _ => {}
         }
     }
 
     fn move_down(&mut self, n: usize) {
-        let max = self.rows.len().saturating_sub(1);
-        self.selected = (self.selected + n).min(max);
+        self.state.apply(Action::MoveDown(n));
         self.maybe_load_more();
-    }
-
-    fn move_up(&mut self, n: usize) {
-        self.selected = self.selected.saturating_sub(n);
-    }
-
-    fn scroll_right(&mut self, n: usize) {
-        self.scroll_x = (self.scroll_x + n).min(self.max_scroll_x);
-    }
-
-    fn scroll_left(&mut self, n: usize) {
-        self.scroll_x = self.scroll_x.saturating_sub(n);
     }
 
     /// When the cursor is within one page of the end, load more commits.
     fn maybe_load_more(&mut self) {
-        if !self.all_loaded && self.selected + self.page_height >= self.rows.len() {
+        if self.state.load_status != LoadStatus::Complete
+            && self.state.selected + self.state.page_height >= self.state.rows.len()
+        {
             let _ = self.load_more_commits();
         }
     }
 
     /// Jump to the very last commit, loading all remaining if needed.
     fn jump_to_end(&mut self) {
-        while !self.all_loaded {
+        while self.state.load_status != LoadStatus::Complete {
             if self.load_more_commits().is_err() {
                 break;
             }
         }
-        self.selected = self.rows.len().saturating_sub(1);
+        self.state.apply(Action::JumpEnd);
     }
 }

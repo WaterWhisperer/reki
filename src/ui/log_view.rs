@@ -18,6 +18,7 @@ const AUTHOR_MAX_WIDTH: usize = 16;
 /// Render the log view into the given area.
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     let graph_max_width = app
+        .state
         .rows
         .iter()
         .map(|row| row.graph.len())
@@ -25,6 +26,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         .unwrap_or(0);
 
     let rows: Vec<Vec<Span<'static>>> = app
+        .state
         .rows
         .iter()
         .map(|row| build_commit_line(row, graph_max_width))
@@ -37,18 +39,19 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         .map(|spans| spans.iter().map(|s| s.content.width()).sum::<usize>())
         .max()
         .unwrap_or(0);
-    app.max_scroll_x = max_content_width.saturating_sub(viewport_width);
-    app.scroll_x = app.scroll_x.min(app.max_scroll_x);
+    app.state.apply(crate::state::Action::SetMaxScrollX(
+        max_content_width.saturating_sub(viewport_width),
+    ));
 
     let items: Vec<ListItem> = rows
         .into_iter()
         .map(|spans| {
-            let clipped = scroll_spans(spans, app.scroll_x);
+            let clipped = scroll_spans(spans, app.state.scroll_x);
             ListItem::new(Line::from(clipped))
         })
         .collect();
 
-    let title = format!(" Log ({}) ", app.rows.len());
+    let title = format!(" Log ({}) ", app.state.rows.len());
 
     let list = List::new(items)
         .block(
@@ -65,7 +68,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         .highlight_symbol("\u{25b8} ");
 
     let mut state = ListState::default();
-    state.select(Some(app.selected));
+    state.select(Some(app.state.selected));
     frame.render_stateful_widget(list, area, &mut state);
 }
 

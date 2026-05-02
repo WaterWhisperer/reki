@@ -10,7 +10,7 @@ fn main() -> Result<()> {
     let mut tui = Tui::new()?;
     tui.enter()?;
 
-    while !app.should_quit {
+    while !app.state.should_quit {
         tui.draw(&mut app)?;
 
         if let Some(ev) = EventHandler::poll()? {

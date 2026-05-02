@@ -10,6 +10,7 @@ use crossterm::{
 use ratatui::{Frame, Terminal, prelude::CrosstermBackend};
 
 use crate::app::App;
+use crate::state::Action;
 
 type Term = Terminal<CrosstermBackend<Stdout>>;
 
@@ -53,7 +54,9 @@ impl Tui {
 /// Render the entire UI.
 fn render(frame: &mut Frame, app: &mut App) {
     let area = frame.area();
-    // Update page_height: area height minus 2 for the border.
-    app.page_height = (area.height as usize).saturating_sub(2);
+    app.state.apply(Action::Resize {
+        width: area.width as usize,
+        height: area.height as usize,
+    });
     log_view::render(frame, app, area);
 }

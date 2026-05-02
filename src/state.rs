@@ -16,6 +16,7 @@ pub enum ViewMode {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Action {
+    Quit,
     StartLoading,
     CommitBatchLoaded {
         rows: Vec<CommitRow>,
@@ -24,6 +25,11 @@ pub enum Action {
     LoadFailed(String),
     MoveDown(usize),
     MoveUp(usize),
+    JumpTop,
+    JumpEnd,
+    ScrollRight(usize),
+    ScrollLeft(usize),
+    SetMaxScrollX(usize),
     OpenInspect,
     CloseInspect,
     Resize {
@@ -39,10 +45,14 @@ pub enum Effect {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AppState {
+    pub should_quit: bool,
     pub rows: Vec<CommitRow>,
     pub selected: usize,
     pub load_status: LoadStatus,
     pub view: ViewMode,
+    pub page_height: usize,
+    pub scroll_x: usize,
+    pub max_scroll_x: usize,
     pub viewport_width: usize,
     pub viewport_height: usize,
 }
@@ -50,10 +60,14 @@ pub struct AppState {
 impl Default for AppState {
     fn default() -> Self {
         Self {
+            should_quit: false,
             rows: Vec::new(),
             selected: 0,
             load_status: LoadStatus::Idle,
             view: ViewMode::Log,
+            page_height: 20,
+            scroll_x: 0,
+            max_scroll_x: 0,
             viewport_width: 0,
             viewport_height: 0,
         }
@@ -63,6 +77,10 @@ impl Default for AppState {
 impl AppState {
     pub fn apply(&mut self, action: Action) -> Vec<Effect> {
         match action {
+            Action::Quit => {
+                self.should_quit = true;
+                Vec::new()
+            }
             Action::StartLoading => {
                 if self.load_status == LoadStatus::Complete {
                     Vec::new()
@@ -94,6 +112,27 @@ impl AppState {
                 self.selected = self.selected.saturating_sub(amount);
                 Vec::new()
             }
+            Action::JumpTop => {
+                self.selected = 0;
+                Vec::new()
+            }
+            Action::JumpEnd => {
+                self.selected = self.rows.len().saturating_sub(1);
+                Vec::new()
+            }
+            Action::ScrollRight(amount) => {
+                self.scroll_x = self.scroll_x.saturating_add(amount).min(self.max_scroll_x);
+                Vec::new()
+            }
+            Action::ScrollLeft(amount) => {
+                self.scroll_x = self.scroll_x.saturating_sub(amount);
+                Vec::new()
+            }
+            Action::SetMaxScrollX(max_scroll_x) => {
+                self.max_scroll_x = max_scroll_x;
+                self.scroll_x = self.scroll_x.min(self.max_scroll_x);
+                Vec::new()
+            }
             Action::OpenInspect => {
                 if let Some(row) = self.rows.get(self.selected) {
                     self.view = ViewMode::Inspect(row.id.clone());
@@ -107,6 +146,7 @@ impl AppState {
             Action::Resize { width, height } => {
                 self.viewport_width = width;
                 self.viewport_height = height;
+                self.page_height = height.saturating_sub(2);
                 Vec::new()
             }
         }

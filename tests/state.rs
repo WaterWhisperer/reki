@@ -37,3 +37,16 @@ fn commit_batches_update_selection_and_inspect_view() {
     assert_eq!(state.selected, 1);
     assert_eq!(state.view, ViewMode::Inspect(CommitId::new("b")));
 }
+
+#[test]
+fn reducer_owns_quit_and_scroll_state() {
+    let mut state = AppState::default();
+
+    state.apply(Action::SetMaxScrollX(5));
+    state.apply(Action::ScrollRight(99));
+    state.apply(Action::ScrollLeft(2));
+    state.apply(Action::Quit);
+
+    assert_eq!(state.scroll_x, 3);
+    assert!(state.should_quit);
+}
