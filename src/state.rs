@@ -94,7 +94,7 @@ impl AppState {
                 self.load_status = if all_loaded {
                     LoadStatus::Complete
                 } else {
-                    LoadStatus::Idle
+                    LoadStatus::Loading
                 };
                 self.clamp_selection();
                 Vec::new()

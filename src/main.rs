@@ -11,6 +11,7 @@ fn main() -> Result<()> {
     tui.enter()?;
 
     while !app.state.should_quit {
+        app.tick();
         tui.draw(&mut app)?;
 
         if let Some(ev) = EventHandler::poll()? {

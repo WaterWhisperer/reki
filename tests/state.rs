@@ -31,6 +31,8 @@ fn commit_batches_update_selection_and_inspect_view() {
         rows: vec![row("a"), row("b")],
         all_loaded: false,
     });
+    assert_eq!(state.load_status, LoadStatus::Loading);
+
     state.apply(Action::MoveDown(10));
     state.apply(Action::OpenInspect);
 
