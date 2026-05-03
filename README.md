@@ -44,7 +44,17 @@ cargo clippy -- -D warnings
 cargo test
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) and [ROADMAP.md](ROADMAP.md) for the current redesign plan.
+## Changelog
+
+Reki uses [git-cliff](https://github.com/orhun/git-cliff) for release notes.
+
+```sh
+cargo install git-cliff
+git cliff --unreleased
+git cliff --output CHANGELOG.md
+```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) and [ROADMAP.md](ROADMAP.md) for the current design and roadmap.
 
 ## License
 

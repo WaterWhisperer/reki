@@ -23,3 +23,5 @@
 - Full patch view with large-file and binary-file safeguards.
 - Optional revision/pathspec arguments.
 - Broader platform validation beyond Unix-first development.
+- Structured diagnostics with `tracing` if worker/UI interactions become hard to debug.
+- Release automation around tags and `git-cliff` once versioned releases begin.
