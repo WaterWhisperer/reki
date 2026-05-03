@@ -1,3 +1,4 @@
+mod inspect_view;
 mod log_view;
 
 use std::io::{self, Stdout};
@@ -10,7 +11,7 @@ use crossterm::{
 use ratatui::{Frame, Terminal, prelude::CrosstermBackend};
 
 use crate::app::App;
-use crate::state::Action;
+use crate::state::{Action, ViewMode};
 
 type Term = Terminal<CrosstermBackend<Stdout>>;
 
@@ -58,5 +59,8 @@ fn render(frame: &mut Frame, app: &mut App) {
         width: area.width as usize,
         height: area.height as usize,
     });
-    log_view::render(frame, app, area);
+    match app.state.view {
+        ViewMode::Log => log_view::render(frame, app, area),
+        ViewMode::Inspect(_) => inspect_view::render(frame, app, area),
+    }
 }

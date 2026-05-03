@@ -1,20 +1,17 @@
-use std::{
-    path::Path,
-    sync::mpsc::{Receiver, TryRecvError},
-};
+use std::{path::Path, sync::mpsc::TryRecvError};
 
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::git::Repo;
-use crate::state::{Action, AppState, LoadStatus};
-use crate::worker::{WorkerMessage, spawn_loader};
+use crate::state::{Action, AppState, LoadStatus, ViewMode};
+use crate::worker::{WorkerCommand, WorkerHandle, spawn_loader};
 
 /// App state management.
 pub struct App {
     /// Pure application state used by input handling and rendering.
     pub state: AppState,
-    receiver: Receiver<WorkerMessage>,
+    worker: WorkerHandle,
 }
 
 impl App {
@@ -28,7 +25,7 @@ impl App {
         let repo = Repo::open(path)?;
         let mut app = Self {
             state: AppState::default(),
-            receiver: spawn_loader(repo),
+            worker: spawn_loader(repo),
         };
         app.state.apply(Action::StartLoading);
         Ok(app)
@@ -36,7 +33,7 @@ impl App {
 
     pub fn tick(&mut self) {
         loop {
-            match self.receiver.try_recv() {
+            match self.worker.messages.try_recv() {
                 Ok(message) => {
                     self.state.apply(message.into());
                 }
@@ -57,6 +54,13 @@ impl App {
 
     /// Handle a key event.
     pub fn handle_event(&mut self, event: KeyEvent) {
+        if matches!(self.state.view, ViewMode::Inspect(_)) {
+            if matches!(event.code, KeyCode::Char('q') | KeyCode::Esc) {
+                self.state.apply(Action::CloseInspect);
+            }
+            return;
+        }
+
         match event.code {
             KeyCode::Char('q') | KeyCode::Esc => {
                 self.state.apply(Action::Quit);
@@ -89,9 +93,7 @@ impl App {
             KeyCode::Char('G') | KeyCode::End => {
                 self.state.apply(Action::JumpEnd);
             }
-            KeyCode::Enter => {
-                self.state.apply(Action::OpenInspect);
-            }
+            KeyCode::Enter => self.open_inspect(),
 
             _ => {}
         }
@@ -99,5 +101,14 @@ impl App {
 
     fn move_down(&mut self, n: usize) {
         self.state.apply(Action::MoveDown(n));
+    }
+
+    fn open_inspect(&mut self) {
+        let Some(row) = self.state.rows.get(self.state.selected) else {
+            return;
+        };
+        let id = row.id.clone();
+        self.state.apply(Action::OpenInspect);
+        let _ = self.worker.commands.send(WorkerCommand::LoadDetails(id));
     }
 }

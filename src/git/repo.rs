@@ -4,7 +4,7 @@ use anyhow::Result;
 use gix::traverse::commit::simple::CommitTimeOrder;
 
 use super::commit::{CommitInfo, RefDecoration, RefKind};
-use crate::model::CommitId;
+use crate::model::{CommitDetails, CommitId, DiffStat};
 
 /// Default batch size for incremental commit loading.
 const BATCH_SIZE: usize = 200;
@@ -95,35 +95,80 @@ impl Repo {
             .filter_map(|info| info.ok())
             .filter_map(|info| {
                 let commit = info.object().ok()?;
-                let id = CommitId::new(info.id.to_string());
-                let parent_ids: Vec<CommitId> = info
-                    .parent_ids()
-                    .map(|id| CommitId::new(id.to_string()))
-                    .collect();
-                let refs = self
-                    .ref_map
-                    .get(&id)
-                    .map(|v| v.as_slice())
-                    .unwrap_or_default()
-                    .to_vec();
-                Some(CommitInfo {
-                    id,
-                    parent_ids,
-                    summary: commit
-                        .message()
-                        .map(|message| message.title.to_string())
-                        .unwrap_or_default(),
-                    author: commit
-                        .author()
-                        .map(|author| author.name.to_string())
-                        .unwrap_or_else(|_| "unknown".to_string()),
-                    time: commit.time().map(|time| time.seconds).unwrap_or_default(),
-                    refs,
-                })
+                Some(self.commit_info(&commit))
             })
             .collect();
 
         self.loaded_count += commits.len();
         Ok(commits)
     }
+
+    pub fn commit_details(&self, id: &CommitId) -> Result<CommitDetails> {
+        let object_id = gix::ObjectId::from_hex(id.to_string().as_bytes())?;
+        let commit = self.inner.find_commit(object_id)?;
+        let info = self.commit_info(&commit);
+        let message = commit
+            .message_raw()
+            .map(|message| message.to_string())
+            .unwrap_or_default();
+        let diffstat = self.diffstat(&commit)?;
+
+        Ok(CommitDetails {
+            row: info.to_row(String::new()),
+            message,
+            diffstat,
+        })
+    }
+
+    fn commit_info(&self, commit: &gix::Commit<'_>) -> CommitInfo {
+        let id = CommitId::new(commit.id.to_string());
+        let parent_ids = commit
+            .parent_ids()
+            .map(|id| CommitId::new(id.to_string()))
+            .collect();
+        let refs = self
+            .ref_map
+            .get(&id)
+            .map(|v| v.as_slice())
+            .unwrap_or_default()
+            .to_vec();
+
+        CommitInfo {
+            id,
+            parent_ids,
+            summary: commit
+                .message()
+                .map(|message| message.title.to_string())
+                .unwrap_or_default(),
+            author: commit
+                .author()
+                .map(|author| author.name.to_string())
+                .unwrap_or_else(|_| "unknown".to_string()),
+            time: commit.time().map(|time| time.seconds).unwrap_or_default(),
+            refs,
+        }
+    }
+
+    fn diffstat(&self, commit: &gix::Commit<'_>) -> Result<DiffStat> {
+        let new_tree = commit.tree()?;
+        let old_tree = match commit.parent_ids().next() {
+            Some(parent_id) => parent_id.object()?.try_into_commit()?.tree()?,
+            None => self.inner.empty_tree(),
+        };
+        let mut changes = old_tree.changes()?;
+        changes.options(|options| {
+            options.track_rewrites(None);
+        });
+        let stats = changes.stats(&new_tree)?;
+
+        Ok(DiffStat {
+            files_changed: saturating_usize(stats.files_changed),
+            insertions: saturating_usize(stats.lines_added),
+            deletions: saturating_usize(stats.lines_removed),
+        })
+    }
+}
+
+fn saturating_usize(value: u64) -> usize {
+    value.try_into().unwrap_or(usize::MAX)
 }

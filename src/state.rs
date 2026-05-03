@@ -1,4 +1,4 @@
-use crate::model::{CommitId, CommitRow};
+use crate::model::{CommitDetails, CommitId, CommitRow};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LoadStatus {
@@ -21,6 +21,11 @@ pub enum Action {
     CommitBatchLoaded {
         rows: Vec<CommitRow>,
         all_loaded: bool,
+    },
+    CommitDetailsLoaded(CommitDetails),
+    CommitDetailsFailed {
+        id: CommitId,
+        message: String,
     },
     LoadFailed(String),
     MoveDown(usize),
@@ -50,6 +55,8 @@ pub struct AppState {
     pub selected: usize,
     pub load_status: LoadStatus,
     pub view: ViewMode,
+    pub details: Option<CommitDetails>,
+    pub details_error: Option<String>,
     pub page_height: usize,
     pub scroll_x: usize,
     pub max_scroll_x: usize,
@@ -65,6 +72,8 @@ impl Default for AppState {
             selected: 0,
             load_status: LoadStatus::Idle,
             view: ViewMode::Log,
+            details: None,
+            details_error: None,
             page_height: 20,
             scroll_x: 0,
             max_scroll_x: 0,
@@ -97,6 +106,19 @@ impl AppState {
                     LoadStatus::Loading
                 };
                 self.clamp_selection();
+                Vec::new()
+            }
+            Action::CommitDetailsLoaded(details) => {
+                if matches!(&self.view, ViewMode::Inspect(id) if id == &details.row.id) {
+                    self.details = Some(details);
+                    self.details_error = None;
+                }
+                Vec::new()
+            }
+            Action::CommitDetailsFailed { id, message } => {
+                if matches!(&self.view, ViewMode::Inspect(current) if current == &id) {
+                    self.details_error = Some(message);
+                }
                 Vec::new()
             }
             Action::LoadFailed(message) => {
@@ -136,11 +158,15 @@ impl AppState {
             Action::OpenInspect => {
                 if let Some(row) = self.rows.get(self.selected) {
                     self.view = ViewMode::Inspect(row.id.clone());
+                    self.details = None;
+                    self.details_error = None;
                 }
                 Vec::new()
             }
             Action::CloseInspect => {
                 self.view = ViewMode::Log;
+                self.details = None;
+                self.details_error = None;
                 Vec::new()
             }
             Action::Resize { width, height } => {

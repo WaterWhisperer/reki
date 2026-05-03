@@ -7,8 +7,18 @@ use anyhow::Result;
 
 use crate::git::{CommitInfo, Repo};
 use crate::graph::Graph;
-use crate::model::CommitRow;
+use crate::model::{CommitId, CommitRow};
 use crate::state::Action;
+
+pub(crate) struct WorkerHandle {
+    pub(crate) commands: Sender<WorkerCommand>,
+    pub(crate) messages: Receiver<WorkerMessage>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum WorkerCommand {
+    LoadDetails(CommitId),
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum WorkerMessage {
@@ -16,42 +26,85 @@ pub enum WorkerMessage {
         rows: Vec<CommitRow>,
         all_loaded: bool,
     },
+    CommitDetailsLoaded(crate::model::CommitDetails),
+    CommitDetailsFailed {
+        id: CommitId,
+        message: String,
+    },
     LoadFailed(String),
 }
 
-pub(crate) fn spawn_loader(repo: Repo) -> Receiver<WorkerMessage> {
-    let (sender, receiver) = mpsc::channel();
+pub(crate) fn spawn_loader(repo: Repo) -> WorkerHandle {
+    let (message_sender, messages) = mpsc::channel();
+    let (commands, command_receiver) = mpsc::channel();
 
     thread::spawn(move || {
-        if let Err(error) = load_commits(repo, &sender) {
-            let _ = sender.send(WorkerMessage::LoadFailed(error.to_string()));
-        }
+        run(repo, &message_sender, &command_receiver);
     });
 
-    receiver
+    WorkerHandle { commands, messages }
 }
 
-fn load_commits(mut repo: Repo, sender: &Sender<WorkerMessage>) -> Result<()> {
+fn run(mut repo: Repo, sender: &Sender<WorkerMessage>, commands: &Receiver<WorkerCommand>) {
     let mut graph = Graph::default();
 
     loop {
-        let commits = repo.load_commits()?;
-        let all_loaded = commits.is_empty();
-        let rows = rows_from_commits_with_graph(commits, &mut graph);
-
-        if sender
-            .send(WorkerMessage::CommitBatchLoaded { rows, all_loaded })
-            .is_err()
-        {
-            break;
-        }
-
-        if all_loaded {
-            break;
+        match load_next_batch(&mut repo, &mut graph, sender) {
+            Ok(true) => break,
+            Ok(false) => drain_commands(&repo, sender, commands),
+            Err(error) => {
+                let _ = sender.send(WorkerMessage::LoadFailed(error.to_string()));
+                return;
+            }
         }
     }
 
-    Ok(())
+    while let Ok(command) = commands.recv() {
+        if !handle_command(&repo, sender, command) {
+            break;
+        }
+    }
+}
+
+fn load_next_batch(
+    repo: &mut Repo,
+    graph: &mut Graph,
+    sender: &Sender<WorkerMessage>,
+) -> Result<bool> {
+    let commits = repo.load_commits()?;
+    let all_loaded = commits.is_empty();
+    let rows = rows_from_commits_with_graph(commits, graph);
+
+    if sender
+        .send(WorkerMessage::CommitBatchLoaded { rows, all_loaded })
+        .is_err()
+    {
+        return Ok(true);
+    }
+
+    Ok(all_loaded)
+}
+
+fn drain_commands(repo: &Repo, sender: &Sender<WorkerMessage>, commands: &Receiver<WorkerCommand>) {
+    while let Ok(command) = commands.try_recv() {
+        if !handle_command(repo, sender, command) {
+            break;
+        }
+    }
+}
+
+fn handle_command(repo: &Repo, sender: &Sender<WorkerMessage>, command: WorkerCommand) -> bool {
+    let message = match command {
+        WorkerCommand::LoadDetails(id) => match repo.commit_details(&id) {
+            Ok(details) => WorkerMessage::CommitDetailsLoaded(details),
+            Err(error) => WorkerMessage::CommitDetailsFailed {
+                id,
+                message: error.to_string(),
+            },
+        },
+    };
+
+    sender.send(message).is_ok()
 }
 
 fn rows_from_commits_with_graph(commits: Vec<CommitInfo>, graph: &mut Graph) -> Vec<CommitRow> {
@@ -70,6 +123,10 @@ impl From<WorkerMessage> for Action {
         match message {
             WorkerMessage::CommitBatchLoaded { rows, all_loaded } => {
                 Action::CommitBatchLoaded { rows, all_loaded }
+            }
+            WorkerMessage::CommitDetailsLoaded(details) => Action::CommitDetailsLoaded(details),
+            WorkerMessage::CommitDetailsFailed { id, message } => {
+                Action::CommitDetailsFailed { id, message }
             }
             WorkerMessage::LoadFailed(message) => Action::LoadFailed(message),
         }

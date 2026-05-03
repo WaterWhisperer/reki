@@ -1,4 +1,4 @@
-use reki::model::{CommitId, CommitRow};
+use reki::model::{CommitDetails, CommitId, CommitRow, DiffStat};
 use reki::state::{Action, AppState, Effect, LoadStatus, ViewMode};
 
 fn row(id: &str) -> CommitRow {
@@ -38,6 +38,30 @@ fn commit_batches_update_selection_and_inspect_view() {
 
     assert_eq!(state.selected, 1);
     assert_eq!(state.view, ViewMode::Inspect(CommitId::new("b")));
+
+    state.apply(Action::CommitDetailsFailed {
+        id: CommitId::new("b"),
+        message: "missing object".to_string(),
+    });
+    assert_eq!(state.details_error.as_deref(), Some("missing object"));
+
+    let details = CommitDetails {
+        row: row("b"),
+        message: "commit b\n\nbody".to_string(),
+        diffstat: DiffStat {
+            files_changed: 1,
+            insertions: 2,
+            deletions: 0,
+        },
+    };
+    state.apply(Action::CommitDetailsLoaded(details.clone()));
+    assert_eq!(state.details, Some(details));
+    assert_eq!(state.details_error, None);
+
+    state.apply(Action::CloseInspect);
+    assert_eq!(state.view, ViewMode::Log);
+    assert_eq!(state.details, None);
+    assert_eq!(state.details_error, None);
 }
 
 #[test]
