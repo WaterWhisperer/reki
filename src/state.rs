@@ -1,6 +1,6 @@
 use crate::{
     model::{CommitDetails, CommitId, CommitRow},
-    search::{self, Direction},
+    search::{self, Direction, MatchStart},
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -221,7 +221,7 @@ impl AppState {
                     self.search_mode = SearchMode::Inactive;
                 } else {
                     self.search_mode = SearchMode::Active;
-                    self.select_search_match(Direction::Forward);
+                    self.select_search_match(Direction::Forward, MatchStart::IncludeSelected);
                 }
                 Vec::new()
             }
@@ -231,11 +231,11 @@ impl AppState {
                 Vec::new()
             }
             Action::FindNext => {
-                self.select_search_match(Direction::Forward);
+                self.select_search_match(Direction::Forward, MatchStart::ExcludeSelected);
                 Vec::new()
             }
             Action::FindPrevious => {
-                self.select_search_match(Direction::Backward);
+                self.select_search_match(Direction::Backward, MatchStart::ExcludeSelected);
                 Vec::new()
             }
             Action::OpenInspect => {
@@ -273,7 +273,7 @@ impl AppState {
         }
     }
 
-    fn select_search_match(&mut self, direction: Direction) {
+    fn select_search_match(&mut self, direction: Direction, start: MatchStart) {
         if self.search_mode != SearchMode::Active || self.search_query.is_empty() {
             return;
         }
@@ -283,6 +283,7 @@ impl AppState {
             self.selected,
             self.search_query.as_str(),
             direction,
+            start,
         ) else {
             return;
         };

@@ -6,18 +6,31 @@ pub(crate) enum Direction {
     Backward,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MatchStart {
+    IncludeSelected,
+    ExcludeSelected,
+}
+
 pub(crate) fn find_match(
     rows: &[CommitRow],
     selected: usize,
     query: &str,
     direction: Direction,
+    start: MatchStart,
 ) -> Option<usize> {
     if rows.is_empty() || query.is_empty() {
         return None;
     }
 
     let query = query.to_lowercase();
-    for step in 1..=rows.len() {
+    let first_step = match start {
+        MatchStart::IncludeSelected => 0,
+        MatchStart::ExcludeSelected => 1,
+    };
+
+    for offset in 0..rows.len() {
+        let step = first_step + offset;
         let index = match direction {
             Direction::Forward => (selected + step) % rows.len(),
             Direction::Backward => (selected + rows.len() - step) % rows.len(),

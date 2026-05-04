@@ -10,7 +10,7 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::app::App;
 use crate::model::{CommitRow, RefKind};
-use crate::state::Action;
+use crate::state::{Action, SearchMode};
 
 /// Fixed column widths for alignment.
 const DATE_WIDTH: usize = 16; // "YYYY-MM-DD HH:MM"
@@ -26,11 +26,18 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         .max()
         .unwrap_or(0);
 
+    let search_query = match app.state.search_mode {
+        SearchMode::Active if !app.state.search_query.is_empty() => {
+            Some(app.state.search_query.as_str())
+        }
+        SearchMode::Active | SearchMode::Editing | SearchMode::Inactive => None,
+    };
+
     let rows: Vec<Vec<Span<'static>>> = app
         .state
         .rows
         .iter()
-        .map(|row| build_commit_line(row, graph_max_width))
+        .map(|row| build_commit_line(row, graph_max_width, search_query))
         .collect();
 
     // Clamp horizontal scroll to content bounds.
@@ -74,7 +81,11 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
 }
 
 /// Build styled spans for a single commit row.
-fn build_commit_line(row: &CommitRow, graph_max_width: usize) -> Vec<Span<'static>> {
+fn build_commit_line(
+    row: &CommitRow,
+    graph_max_width: usize,
+    search_query: Option<&str>,
+) -> Vec<Span<'static>> {
     let mut spans = Vec::with_capacity(12);
 
     // Graph.
@@ -94,10 +105,12 @@ fn build_commit_line(row: &CommitRow, graph_max_width: usize) -> Vec<Span<'stati
     }
 
     // Hash.
-    spans.push(Span::styled(
+    push_searchable_text(
+        &mut spans,
         row.id.short().to_string(),
         Style::default().fg(Color::Yellow),
-    ));
+        search_query,
+    );
     spans.push(Span::raw(" "));
 
     // Date.
@@ -119,31 +132,43 @@ fn build_commit_line(row: &CommitRow, graph_max_width: usize) -> Vec<Span<'stati
     } else {
         format!("{truncated}{:>w$}", "", w = padding)
     };
-    spans.push(Span::styled(
+    push_searchable_text(
+        &mut spans,
         author_display,
         Style::default().fg(Color::Blue),
-    ));
+        search_query,
+    );
     spans.push(Span::raw(" "));
 
     // Ref decorations.
     for r in &row.refs {
-        let (color, label) = match r.kind {
-            RefKind::Head => (Color::Cyan, "HEAD".to_string()),
-            RefKind::Branch => (Color::Green, r.name.clone()),
-            RefKind::Remote => (Color::Red, r.name.clone()),
-            RefKind::Tag => (Color::Yellow, format!("\u{1f3f7} {}", r.name)),
+        let color = match r.kind {
+            RefKind::Head => Color::Cyan,
+            RefKind::Branch => Color::Green,
+            RefKind::Remote => Color::Red,
+            RefKind::Tag => Color::Yellow,
         };
-        spans.push(Span::styled(
-            format!("({label}) "),
-            Style::default().fg(color).add_modifier(Modifier::BOLD),
-        ));
+        let style = Style::default().fg(color).add_modifier(Modifier::BOLD);
+        spans.push(Span::styled("(", style));
+        if r.kind == RefKind::Tag {
+            spans.push(Span::styled("\u{1f3f7} ", style));
+        }
+        let label = if r.kind == RefKind::Head {
+            "HEAD".to_string()
+        } else {
+            r.name.clone()
+        };
+        push_searchable_text(&mut spans, label, style, search_query);
+        spans.push(Span::styled(") ", style));
     }
 
     // Summary.
-    spans.push(Span::styled(
+    push_searchable_text(
+        &mut spans,
         row.summary.clone(),
         Style::default().fg(Color::Reset),
-    ));
+        search_query,
+    );
 
     spans
 }
@@ -170,4 +195,153 @@ fn scroll_spans(spans: Vec<Span<'static>>, offset: usize) -> Vec<Span<'static>> 
         }
     }
     result
+}
+
+fn push_searchable_text(
+    spans: &mut Vec<Span<'static>>,
+    text: String,
+    style: Style,
+    query: Option<&str>,
+) {
+    if let Some(query) = query {
+        spans.extend(highlight_searchable_text(text, style, query));
+    } else {
+        spans.push(Span::styled(text, style));
+    }
+}
+
+fn highlight_searchable_text(text: String, style: Style, query: &str) -> Vec<Span<'static>> {
+    if query.is_empty() {
+        return vec![Span::styled(text, style)];
+    }
+
+    let mut highlighted = Vec::new();
+    let ranges = case_insensitive_match_ranges(&text, query);
+    if ranges.is_empty() {
+        highlighted.push(Span::styled(text, style));
+        return highlighted;
+    }
+
+    let mut cursor = 0;
+    for range in ranges {
+        if cursor < range.start {
+            highlighted.push(Span::styled(text[cursor..range.start].to_string(), style));
+        }
+        highlighted.push(Span::styled(
+            text[range.clone()].to_string(),
+            style.patch(search_match_style(style)),
+        ));
+        cursor = range.end;
+    }
+    if cursor < text.len() {
+        highlighted.push(Span::styled(text[cursor..].to_string(), style));
+    }
+    highlighted
+}
+
+fn case_insensitive_match_ranges(text: &str, query: &str) -> Vec<std::ops::Range<usize>> {
+    let query = query.to_lowercase();
+    let (lowered, original_boundaries) = lowercase_with_original_boundaries(text);
+
+    lowered
+        .match_indices(query.as_str())
+        .map(|(start, matched)| {
+            original_boundaries[start]..original_boundaries[start + matched.len()]
+        })
+        .collect()
+}
+
+fn lowercase_with_original_boundaries(text: &str) -> (String, Vec<usize>) {
+    let mut lowered = String::new();
+    let mut original_boundaries = vec![0];
+
+    for (start, ch) in text.char_indices() {
+        let end = start + ch.len_utf8();
+        for lower in ch.to_lowercase() {
+            let lower = lower.to_string();
+            for _ in 0..lower.len() {
+                original_boundaries.push(end);
+            }
+            lowered.push_str(&lower);
+        }
+    }
+
+    (lowered, original_boundaries)
+}
+
+fn search_match_style(base_style: Style) -> Style {
+    let background = if base_style.fg == Some(Color::Yellow) {
+        Color::DarkGray
+    } else {
+        Color::Yellow
+    };
+
+    Style::default().bg(background).add_modifier(Modifier::BOLD)
+}
+
+#[cfg(test)]
+mod tests {
+    use ratatui::{
+        style::{Color, Style},
+        text::Span,
+    };
+
+    use super::{build_commit_line, highlight_searchable_text};
+    use crate::model::{CommitId, CommitRow};
+
+    fn row() -> CommitRow {
+        CommitRow {
+            id: CommitId::new("1111111111111111111111111111111111111111"),
+            parent_ids: Vec::new(),
+            graph: String::new(),
+            summary: "fix search".to_string(),
+            author: "A. User".to_string(),
+            time: 1767225600,
+            refs: Vec::new(),
+        }
+    }
+
+    fn is_search_highlighted(span: &Span<'_>) -> bool {
+        span.style.bg == Some(Color::Yellow)
+    }
+
+    #[test]
+    fn highlight_matches_marks_case_insensitive_segments() {
+        let spans = highlight_searchable_text(
+            "Fix bug fix".to_string(),
+            Style::default().fg(Color::White),
+            "fix",
+        );
+
+        assert_eq!(spans.len(), 3);
+        assert_eq!(spans[0].content.as_ref(), "Fix");
+        assert_eq!(spans[0].style.bg, Some(Color::Yellow));
+        assert_eq!(spans[2].content.as_ref(), "fix");
+        assert_eq!(spans[2].style.bg, Some(Color::Yellow));
+    }
+
+    #[test]
+    fn search_highlight_preserves_base_foreground() {
+        let spans =
+            highlight_searchable_text("Fix".to_string(), Style::default().fg(Color::White), "fix");
+
+        assert_eq!(spans[0].style.fg, Some(Color::White));
+        assert_eq!(spans[0].style.bg, Some(Color::Yellow));
+    }
+
+    #[test]
+    fn search_highlight_avoids_yellow_on_yellow_fields() {
+        let spans =
+            highlight_searchable_text("111".to_string(), Style::default().fg(Color::Yellow), "111");
+
+        assert_eq!(spans[0].style.fg, Some(Color::Yellow));
+        assert_eq!(spans[0].style.bg, Some(Color::DarkGray));
+    }
+
+    #[test]
+    fn search_highlighting_ignores_non_searchable_date_text() {
+        let spans = build_commit_line(&row(), 0, Some("2026"));
+
+        assert!(!spans.iter().any(is_search_highlighted));
+    }
 }

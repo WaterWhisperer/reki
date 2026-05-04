@@ -134,6 +134,27 @@ fn search_selects_next_match_and_cycles_forward() {
 }
 
 #[test]
+fn search_finish_keeps_current_match_before_next_match() {
+    let mut state = AppState::default();
+    state.apply(Action::CommitBatchLoaded {
+        rows: vec![
+            row_with_summary("a", "initial import"),
+            row_with_summary("b", "feat search highlight"),
+            row_with_summary("c", "write docs"),
+            row_with_summary("d", "feat inspect colors"),
+        ],
+        all_loaded: true,
+    });
+    state.apply(Action::MoveDown(1));
+
+    enter_search(&mut state, "feat");
+    assert_eq!(state.selected, 1);
+
+    state.apply(Action::FindNext);
+    assert_eq!(state.selected, 3);
+}
+
+#[test]
 fn search_selects_previous_match_and_keeps_selection_when_missing() {
     let mut state = AppState::default();
     state.apply(Action::CommitBatchLoaded {
