@@ -6,28 +6,29 @@ use gix::traverse::commit::simple::CommitTimeOrder;
 use super::commit::{CommitInfo, RefDecoration, RefKind};
 use crate::model::{CommitDetails, CommitId, DiffStat};
 
-/// Default batch size for incremental commit loading.
-const BATCH_SIZE: usize = 200;
+const OBJECT_CACHE_BYTES: usize = 32 * 1024 * 1024;
 
 /// Wrapper around a Git repository.
 pub struct Repo {
     inner: gix::Repository,
     /// Mapping from commit Oid to its reference decorations.
     ref_map: HashMap<CommitId, Vec<RefDecoration>>,
-    /// Number of commits already yielded (to resume revwalk without re-skipping).
-    loaded_count: usize,
+}
+
+/// Incremental cursor over commits reachable from HEAD.
+pub(crate) struct CommitCursor<'repo> {
+    repo: &'repo Repo,
+    walk: gix::revision::Walk<'repo>,
 }
 
 impl Repo {
     /// Open a git repository at the given path (or discover from it).
     pub fn open(path: &std::path::Path) -> Result<Self> {
-        let inner = gix::discover(path)?;
+        let mut inner = gix::discover(path)?;
+        inner.object_cache_size_if_unset(OBJECT_CACHE_BYTES);
+
         let ref_map = Self::build_ref_map(&inner)?;
-        Ok(Self {
-            inner,
-            ref_map,
-            loaded_count: 0,
-        })
+        Ok(Self { inner, ref_map })
     }
 
     /// Rebuild the ref decoration map by iterating all references.
@@ -77,9 +78,8 @@ impl Repo {
         Ok(map)
     }
 
-    /// Load the next batch of commits incrementally.
-    /// Returns up to `BATCH_SIZE` commits starting from where the last call left off.
-    pub fn load_commits(&mut self) -> Result<Vec<CommitInfo>> {
+    /// Create a cursor for incrementally loading commits from HEAD.
+    pub(crate) fn commit_cursor(&self) -> Result<CommitCursor<'_>> {
         let walk = self
             .inner
             .head_commit()?
@@ -89,18 +89,7 @@ impl Repo {
             ))
             .all()?;
 
-        let commits: Vec<CommitInfo> = walk
-            .skip(self.loaded_count)
-            .take(BATCH_SIZE)
-            .filter_map(|info| info.ok())
-            .filter_map(|info| {
-                let commit = info.object().ok()?;
-                Some(self.commit_info(&commit))
-            })
-            .collect();
-
-        self.loaded_count += commits.len();
-        Ok(commits)
+        Ok(CommitCursor { repo: self, walk })
     }
 
     pub fn commit_details(&self, id: &CommitId) -> Result<CommitDetails> {
@@ -169,6 +158,109 @@ impl Repo {
     }
 }
 
+impl CommitCursor<'_> {
+    /// Load up to `limit` commits from the current cursor position.
+    pub(crate) fn next_batch(&mut self, limit: usize) -> Result<Vec<CommitInfo>> {
+        let commits = self
+            .walk
+            .by_ref()
+            .filter_map(|info| info.ok())
+            .filter_map(|info| {
+                let commit = info.object().ok()?;
+                Some(self.repo.commit_info(&commit))
+            })
+            .take(limit)
+            .collect();
+
+        Ok(commits)
+    }
+}
+
 fn saturating_usize(value: u64) -> usize {
     value.try_into().unwrap_or(usize::MAX)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        process::Command,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    use super::Repo;
+
+    struct TempRepo {
+        path: PathBuf,
+    }
+
+    impl TempRepo {
+        fn new() -> Self {
+            let stamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock should be after epoch")
+                .as_nanos();
+            let path = std::env::temp_dir()
+                .join(format!("reki-cursor-test-{}-{stamp}", std::process::id()));
+            fs::create_dir_all(&path).expect("temp repo directory should be created");
+            Self { path }
+        }
+    }
+
+    impl Drop for TempRepo {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn git(repo: &Path, args: &[&str]) {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(repo)
+            .output()
+            .expect("git should run");
+        assert!(
+            output.status.success(),
+            "git {:?} failed: {}",
+            args,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    #[test]
+    fn commit_cursor_advances_across_batches_without_repeating_commits() {
+        let repo = TempRepo::new();
+        git(&repo.path, &["init"]);
+        git(&repo.path, &["config", "user.name", "Test User"]);
+        git(&repo.path, &["config", "user.email", "test@example.com"]);
+        git(&repo.path, &["config", "commit.gpgSign", "false"]);
+
+        for index in 1..=3 {
+            fs::write(repo.path.join("a.txt"), format!("{index}\n"))
+                .expect("fixture file should be written");
+            git(&repo.path, &["add", "."]);
+            git(&repo.path, &["commit", "-m", &format!("commit {index}")]);
+        }
+
+        let repo = Repo::open(&repo.path).expect("repo should open");
+        let mut cursor = repo.commit_cursor().expect("cursor should be created");
+
+        let first = cursor.next_batch(2).expect("first batch should load");
+        let second = cursor.next_batch(2).expect("second batch should load");
+        let third = cursor.next_batch(2).expect("third batch should load");
+
+        let mut ids = first
+            .iter()
+            .chain(second.iter())
+            .map(|commit| commit.id.to_string())
+            .collect::<Vec<_>>();
+        ids.sort();
+        ids.dedup();
+
+        assert_eq!(first.len(), 2);
+        assert_eq!(second.len(), 1);
+        assert!(third.is_empty());
+        assert_eq!(ids.len(), 3);
+    }
 }

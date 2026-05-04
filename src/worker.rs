@@ -10,6 +10,9 @@ use crate::graph::Graph;
 use crate::model::{CommitId, CommitRow};
 use crate::state::Action;
 
+/// Default batch size for incremental commit loading.
+const BATCH_SIZE: usize = 200;
+
 pub(crate) struct WorkerHandle {
     pub(crate) commands: Sender<WorkerCommand>,
     pub(crate) messages: Receiver<WorkerMessage>,
@@ -45,11 +48,18 @@ pub(crate) fn spawn_loader(repo: Repo) -> WorkerHandle {
     WorkerHandle { commands, messages }
 }
 
-fn run(mut repo: Repo, sender: &Sender<WorkerMessage>, commands: &Receiver<WorkerCommand>) {
+fn run(repo: Repo, sender: &Sender<WorkerMessage>, commands: &Receiver<WorkerCommand>) {
     let mut graph = Graph::default();
+    let mut cursor = match repo.commit_cursor() {
+        Ok(cursor) => cursor,
+        Err(error) => {
+            let _ = sender.send(WorkerMessage::LoadFailed(error.to_string()));
+            return;
+        }
+    };
 
     loop {
-        match load_next_batch(&mut repo, &mut graph, sender) {
+        match load_next_batch(&mut cursor, &mut graph, sender) {
             Ok(true) => break,
             Ok(false) => drain_commands(&repo, sender, commands),
             Err(error) => {
@@ -59,6 +69,8 @@ fn run(mut repo: Repo, sender: &Sender<WorkerMessage>, commands: &Receiver<Worke
         }
     }
 
+    drop(cursor);
+
     while let Ok(command) = commands.recv() {
         if !handle_command(&repo, sender, command) {
             break;
@@ -67,11 +79,11 @@ fn run(mut repo: Repo, sender: &Sender<WorkerMessage>, commands: &Receiver<Worke
 }
 
 fn load_next_batch(
-    repo: &mut Repo,
+    cursor: &mut crate::git::CommitCursor<'_>,
     graph: &mut Graph,
     sender: &Sender<WorkerMessage>,
 ) -> Result<bool> {
-    let commits = repo.load_commits()?;
+    let commits = cursor.next_batch(BATCH_SIZE)?;
     let all_loaded = commits.is_empty();
     let rows = rows_from_commits_with_graph(commits, graph);
 
