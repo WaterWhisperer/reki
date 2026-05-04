@@ -10,6 +10,7 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::app::App;
 use crate::model::{CommitRow, RefKind};
+use crate::state::Action;
 
 /// Fixed column widths for alignment.
 const DATE_WIDTH: usize = 16; // "YYYY-MM-DD HH:MM"
@@ -39,7 +40,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         .map(|spans| spans.iter().map(|s| s.content.width()).sum::<usize>())
         .max()
         .unwrap_or(0);
-    app.state.apply(crate::state::Action::SetMaxScrollX(
+    app.state.apply(Action::SetMaxScrollX(
         max_content_width.saturating_sub(viewport_width),
     ));
 

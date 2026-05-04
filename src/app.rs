@@ -4,7 +4,7 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::git::Repo;
-use crate::state::{Action, AppState, LoadStatus, ViewMode};
+use crate::state::{Action, AppState, LoadStatus, SearchMode, ViewMode};
 use crate::worker::{WorkerCommand, WorkerHandle, spawn_loader};
 
 /// App state management.
@@ -55,9 +55,12 @@ impl App {
     /// Handle a key event.
     pub fn handle_event(&mut self, event: KeyEvent) {
         if matches!(self.state.view, ViewMode::Inspect(_)) {
-            if matches!(event.code, KeyCode::Char('q') | KeyCode::Esc) {
-                self.state.apply(Action::CloseInspect);
-            }
+            self.handle_inspect_event(event);
+            return;
+        }
+
+        if self.state.search_mode == SearchMode::Editing {
+            self.handle_search_event(event);
             return;
         }
 
@@ -93,8 +96,66 @@ impl App {
             KeyCode::Char('G') | KeyCode::End => {
                 self.state.apply(Action::JumpEnd);
             }
+            KeyCode::Char('/') => {
+                self.state.apply(Action::BeginSearch);
+            }
+            KeyCode::Char('n') => {
+                self.state.apply(Action::FindNext);
+            }
+            KeyCode::Char('N') => {
+                self.state.apply(Action::FindPrevious);
+            }
             KeyCode::Enter => self.open_inspect(),
 
+            _ => {}
+        }
+    }
+
+    fn handle_inspect_event(&mut self, event: KeyEvent) {
+        match event.code {
+            KeyCode::Char('q') | KeyCode::Esc => {
+                self.state.apply(Action::CloseInspect);
+            }
+            KeyCode::Char('j') | KeyCode::Down => {
+                self.state.apply(Action::ScrollInspectDown(1));
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                self.state.apply(Action::ScrollInspectUp(1));
+            }
+            KeyCode::Char(' ') | KeyCode::PageDown => {
+                self.state
+                    .apply(Action::ScrollInspectDown(self.state.page_height));
+            }
+            KeyCode::Char('-') | KeyCode::Char('a') | KeyCode::PageUp => {
+                self.state
+                    .apply(Action::ScrollInspectUp(self.state.page_height));
+            }
+            KeyCode::Char('g') | KeyCode::Home => {
+                self.state
+                    .apply(Action::ScrollInspectUp(self.state.inspect_scroll_y));
+            }
+            KeyCode::Char('G') | KeyCode::End => {
+                self.state
+                    .apply(Action::ScrollInspectDown(self.state.inspect_max_scroll_y));
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_search_event(&mut self, event: KeyEvent) {
+        match event.code {
+            KeyCode::Esc => {
+                self.state.apply(Action::CancelSearch);
+            }
+            KeyCode::Enter => {
+                self.state.apply(Action::FinishSearch);
+            }
+            KeyCode::Backspace => {
+                self.state.apply(Action::PopSearchChar);
+            }
+            KeyCode::Char(ch) => {
+                self.state.apply(Action::PushSearchChar(ch));
+            }
             _ => {}
         }
     }

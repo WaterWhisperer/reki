@@ -4,6 +4,7 @@ pub mod event;
 pub mod git;
 pub mod graph;
 pub mod model;
+mod search;
 pub mod state;
 pub mod ui;
 pub mod worker;

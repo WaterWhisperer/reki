@@ -8,6 +8,7 @@
 - Move commit loading to a worker thread with typed messages.
 - Render a dense single-pane log with graph, hash, date, author, refs, and summary.
 - Add Enter-opened commit inspect view with metadata and diffstat.
+- Search loaded commits with `/`, `n`, and `N`.
 
 ## Verification Goals
 
@@ -19,7 +20,8 @@
 
 ## Later
 
-- Search with `/`, `n`, and `N`.
+- Search refinements such as match highlighting and path-aware/global search.
+- In-app help view opened with `h`.
 - Full patch view with large-file and binary-file safeguards.
 - Optional revision/pathspec arguments.
 - Broader platform validation beyond Unix-first development.

@@ -2,15 +2,27 @@ use reki::model::{CommitDetails, CommitId, CommitRow, DiffStat};
 use reki::state::{Action, AppState, Effect, LoadStatus, ViewMode};
 
 fn row(id: &str) -> CommitRow {
+    row_with_summary(id, format!("commit {id}"))
+}
+
+fn row_with_summary(id: &str, summary: impl Into<String>) -> CommitRow {
     CommitRow {
         id: CommitId::new(id),
         parent_ids: Vec::new(),
         graph: String::new(),
-        summary: format!("commit {id}"),
+        summary: summary.into(),
         author: "A. User".to_string(),
         time: 0,
         refs: Vec::new(),
     }
+}
+
+fn enter_search(state: &mut AppState, query: &str) {
+    state.apply(Action::BeginSearch);
+    for ch in query.chars() {
+        state.apply(Action::PushSearchChar(ch));
+    }
+    state.apply(Action::FinishSearch);
 }
 
 #[test]
@@ -75,4 +87,69 @@ fn reducer_owns_quit_and_scroll_state() {
 
     assert_eq!(state.scroll_x, 3);
     assert!(state.should_quit);
+}
+
+#[test]
+fn inspect_scroll_clamps_and_resets_with_view_changes() {
+    let mut state = AppState::default();
+    state.apply(Action::CommitBatchLoaded {
+        rows: vec![row("a")],
+        all_loaded: true,
+    });
+
+    state.apply(Action::OpenInspect);
+    state.apply(Action::SetInspectMaxScrollY(3));
+    state.apply(Action::ScrollInspectDown(99));
+    assert_eq!(state.inspect_scroll_y, 3);
+
+    state.apply(Action::ScrollInspectUp(1));
+    assert_eq!(state.inspect_scroll_y, 2);
+
+    state.apply(Action::CloseInspect);
+    assert_eq!(state.inspect_scroll_y, 0);
+    assert_eq!(state.inspect_max_scroll_y, 0);
+}
+
+#[test]
+fn search_selects_next_match_and_cycles_forward() {
+    let mut state = AppState::default();
+    state.apply(Action::CommitBatchLoaded {
+        rows: vec![
+            row_with_summary("a", "initial import"),
+            row_with_summary("b", "fix parser"),
+            row_with_summary("c", "write docs"),
+            row_with_summary("d", "fix terminal redraw"),
+        ],
+        all_loaded: true,
+    });
+
+    enter_search(&mut state, "fix");
+    assert_eq!(state.selected, 1);
+
+    state.apply(Action::FindNext);
+    assert_eq!(state.selected, 3);
+
+    state.apply(Action::FindNext);
+    assert_eq!(state.selected, 1);
+}
+
+#[test]
+fn search_selects_previous_match_and_keeps_selection_when_missing() {
+    let mut state = AppState::default();
+    state.apply(Action::CommitBatchLoaded {
+        rows: vec![
+            row_with_summary("a", "initial import"),
+            row_with_summary("b", "fix parser"),
+            row_with_summary("c", "write docs"),
+            row_with_summary("d", "fix terminal redraw"),
+        ],
+        all_loaded: true,
+    });
+
+    enter_search(&mut state, "fix");
+    state.apply(Action::FindPrevious);
+    assert_eq!(state.selected, 3);
+
+    enter_search(&mut state, "missing");
+    assert_eq!(state.selected, 3);
 }

@@ -20,13 +20,28 @@ cd /path/to/your/git/repo
 reki
 ```
 
+or
+
+```sh
+reki /path/to/your/git/repo
+```
+
 ### Keybindings
 
-|      Key     |   Action  |
-|--------------|-----------|
-|  `j` / `↓`   | Move down |
-|  `k` / `↑`   |  Move up  |
-|  `q` / `Esc` |   Quit    |
+|          Key          |          Action          |
+|-----------------------|--------------------------|
+| `j` / `↓`             | Move down / scroll down  |
+| `k` / `↑`             | Move up / scroll up      |
+| `Space` / `PageDown`  | Page down                |
+| `-` / `a` / `PageUp`  | Page up                  |
+| `g` / `Home`          | Jump / scroll to top     |
+| `G` / `End`           | Jump / scroll to bottom  |
+| `h` / `←`             | Scroll left              |
+| `l` / `→`             | Scroll right             |
+| `/`                   | Search loaded commits    |
+| `n` / `N`             | Next / previous match    |
+| `Enter`               | Open commit inspect view |
+| `q` / `Esc`           | Quit or close view       |
 
 ## Building from source
 
@@ -42,6 +57,7 @@ cargo build --release
 cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo test
+cargo deny check
 ```
 
 ## Changelog

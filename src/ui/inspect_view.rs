@@ -9,7 +9,7 @@ use ratatui::{
 use crate::{
     app::App,
     model::{CommitDetails, CommitId, CommitRow, RefKind},
-    state::{AppState, ViewMode},
+    state::{Action, AppState, ViewMode},
 };
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
@@ -18,13 +18,19 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         ViewMode::Log => return,
     };
     let title = format!(" Commit {} ", id.short());
-    let paragraph = Paragraph::new(build_lines(&app.state, id))
+    let lines = build_lines(&app.state, id);
+    let max_scroll_y = inspect_max_scroll_y(&lines, area);
+    app.state.apply(Action::SetInspectMaxScrollY(max_scroll_y));
+
+    let scroll_y = u16::try_from(app.state.inspect_scroll_y).unwrap_or(u16::MAX);
+    let paragraph = Paragraph::new(lines)
         .block(
             Block::default()
                 .title(title)
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::DarkGray)),
         )
+        .scroll((scroll_y, 0))
         .wrap(Wrap { trim: false });
 
     frame.render_widget(paragraph, area);
@@ -130,4 +136,44 @@ fn refs_text(row: &CommitRow) -> String {
         })
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+fn inspect_max_scroll_y(lines: &[Line<'_>], area: Rect) -> usize {
+    let visible_height = (area.height as usize).saturating_sub(2);
+    let content_width = (area.width as usize).saturating_sub(2);
+
+    wrapped_content_height(lines, content_width).saturating_sub(visible_height)
+}
+
+fn wrapped_content_height(lines: &[Line<'_>], width: usize) -> usize {
+    let Ok(width) = u16::try_from(width) else {
+        return usize::from(u16::MAX);
+    };
+
+    Paragraph::new(lines.to_vec())
+        .wrap(Wrap { trim: false })
+        .line_count(width)
+}
+
+#[cfg(test)]
+mod tests {
+    use ratatui::{layout::Rect, text::Line};
+
+    use super::inspect_max_scroll_y;
+
+    #[test]
+    fn max_scroll_counts_wrapped_screen_lines() {
+        let lines = vec![Line::from("abcdef"), Line::from("")];
+        let area = Rect::new(0, 0, 5, 4);
+
+        assert_eq!(inspect_max_scroll_y(&lines, area), 1);
+    }
+
+    #[test]
+    fn max_scroll_counts_word_boundary_wraps() {
+        let lines = vec![Line::from("aa bbb cc")];
+        let area = Rect::new(0, 0, 7, 4);
+
+        assert_eq!(inspect_max_scroll_y(&lines, area), 1);
+    }
 }

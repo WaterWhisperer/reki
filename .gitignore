@@ -1,3 +1,4 @@
 /target
+/.codex
 *.local.md
 .worktrees/
