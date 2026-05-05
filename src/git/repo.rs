@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use gix::traverse::commit::simple::CommitTimeOrder;
+use gix::{bstr::ByteSlice, traverse::commit::simple::CommitTimeOrder};
 
 use super::commit::{CommitInfo, RefDecoration, RefKind};
-use crate::model::{CommitDetails, CommitId, DiffStat};
+use super::patch::{commit_diffstat, commit_patch};
+use crate::model::{CommitDetails, CommitId, CommitSignature};
 
 const OBJECT_CACHE_BYTES: usize = 32 * 1024 * 1024;
 
@@ -100,12 +101,18 @@ impl Repo {
             .message_raw()
             .map(|message| message.to_string())
             .unwrap_or_default();
-        let diffstat = self.diffstat(&commit)?;
+        let diffstat = commit_diffstat(&self.inner, &commit)?;
+        let patch = commit_patch(&self.inner, &commit)?;
+        let author = model_signature(commit.author()?.into());
+        let committer = model_signature(commit.committer()?.into());
 
         Ok(CommitDetails {
             row: info.to_row(String::new()),
+            author,
+            committer,
             message,
             diffstat,
+            patch,
         })
     }
 
@@ -137,25 +144,6 @@ impl Repo {
             refs,
         }
     }
-
-    fn diffstat(&self, commit: &gix::Commit<'_>) -> Result<DiffStat> {
-        let new_tree = commit.tree()?;
-        let old_tree = match commit.parent_ids().next() {
-            Some(parent_id) => parent_id.object()?.try_into_commit()?.tree()?,
-            None => self.inner.empty_tree(),
-        };
-        let mut changes = old_tree.changes()?;
-        changes.options(|options| {
-            options.track_rewrites(None);
-        });
-        let stats = changes.stats(&new_tree)?;
-
-        Ok(DiffStat {
-            files_changed: saturating_usize(stats.files_changed),
-            insertions: saturating_usize(stats.lines_added),
-            deletions: saturating_usize(stats.lines_removed),
-        })
-    }
 }
 
 impl CommitCursor<'_> {
@@ -176,8 +164,13 @@ impl CommitCursor<'_> {
     }
 }
 
-fn saturating_usize(value: u64) -> usize {
-    value.try_into().unwrap_or(usize::MAX)
+fn model_signature(signature: gix::actor::Signature) -> CommitSignature {
+    CommitSignature {
+        name: signature.name.to_str_lossy().into_owned(),
+        email: signature.email.to_str_lossy().into_owned(),
+        time: signature.time.seconds,
+        offset_seconds: signature.time.offset,
+    }
 }
 
 #[cfg(test)]

@@ -11,7 +11,7 @@ Inspired by [tig](https://github.com/jonas/tig), [yazi](https://github.com/sxyaz
 - **Tig-like graph fidelity** for common branches, merges, tags, and refs.
 - **Responsive browsing** with a dense single-pane commit log.
 - **Read-only safety**: no staging, checkout, reset, or repository mutation in v1.
-- **Commit inspect view** opened from the log, focused on metadata and diffstat.
+- **Commit inspect view** opened from the log, focused on metadata, diffstat, and bounded patch details.
 
 ## Usage
 

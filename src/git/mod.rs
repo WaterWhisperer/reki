@@ -1,4 +1,5 @@
 mod commit;
+mod patch;
 mod repo;
 
 pub use commit::{CommitInfo, RefKind};

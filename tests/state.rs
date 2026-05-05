@@ -1,4 +1,4 @@
-use reki::model::{CommitDetails, CommitId, CommitRow, DiffStat};
+use reki::model::{CommitDetails, CommitId, CommitRow, CommitSignature, DiffStat, Patch};
 use reki::state::{Action, AppState, Effect, LoadStatus, ViewMode};
 
 fn row(id: &str) -> CommitRow {
@@ -57,16 +57,26 @@ fn commit_batches_update_selection_and_inspect_view() {
     });
     assert_eq!(state.details_error.as_deref(), Some("missing object"));
 
+    let signature = CommitSignature {
+        name: "A. User".to_string(),
+        email: "a@example.com".to_string(),
+        time: 0,
+        offset_seconds: 0,
+    };
     let details = CommitDetails {
         row: row("b"),
+        author: signature.clone(),
+        committer: signature,
         message: "commit b\n\nbody".to_string(),
         diffstat: DiffStat {
             files_changed: 1,
             insertions: 2,
             deletions: 0,
+            files: Vec::new(),
         },
+        patch: Patch { lines: Vec::new() },
     };
-    state.apply(Action::CommitDetailsLoaded(details.clone()));
+    state.apply(Action::CommitDetailsLoaded(Box::new(details.clone())));
     assert_eq!(state.details, Some(details));
     assert_eq!(state.details_error, None);
 
@@ -90,7 +100,7 @@ fn reducer_owns_quit_and_scroll_state() {
 }
 
 #[test]
-fn inspect_scroll_clamps_and_resets_with_view_changes() {
+fn inspect_cursor_movement_clamps_and_scroll_follows() {
     let mut state = AppState::default();
     state.apply(Action::CommitBatchLoaded {
         rows: vec![row("a")],
@@ -98,16 +108,80 @@ fn inspect_scroll_clamps_and_resets_with_view_changes() {
     });
 
     state.apply(Action::OpenInspect);
-    state.apply(Action::SetInspectMaxScrollY(3));
-    state.apply(Action::ScrollInspectDown(99));
-    assert_eq!(state.inspect_scroll_y, 3);
+    state.apply(Action::SetInspectMetrics {
+        line_count: 5,
+        visible_height: 3,
+    });
 
-    state.apply(Action::ScrollInspectUp(1));
+    state.apply(Action::MoveInspectDown(99));
+    assert_eq!(state.inspect_cursor_y, 4);
+    assert_eq!(state.inspect_scroll_y, 2);
+    assert_eq!(state.inspect_max_scroll_y, 2);
+
+    state.apply(Action::MoveInspectUp(2));
+    assert_eq!(state.inspect_cursor_y, 2);
     assert_eq!(state.inspect_scroll_y, 2);
 
+    state.apply(Action::MoveInspectUp(99));
+    assert_eq!(state.inspect_cursor_y, 0);
+    assert_eq!(state.inspect_scroll_y, 0);
+}
+
+#[test]
+fn inspect_page_movement_uses_current_line_model() {
+    let mut state = AppState::default();
+    state.apply(Action::CommitBatchLoaded {
+        rows: vec![row("a")],
+        all_loaded: true,
+    });
+
+    state.apply(Action::OpenInspect);
+    state.apply(Action::SetInspectMetrics {
+        line_count: 10,
+        visible_height: 4,
+    });
+
+    state.apply(Action::MoveInspectDown(4));
+    assert_eq!(state.inspect_cursor_y, 4);
+    assert_eq!(state.inspect_scroll_y, 1);
+
+    state.apply(Action::MoveInspectDown(4));
+    assert_eq!(state.inspect_cursor_y, 8);
+    assert_eq!(state.inspect_scroll_y, 5);
+
+    state.apply(Action::MoveInspectUp(4));
+    assert_eq!(state.inspect_cursor_y, 4);
+    assert_eq!(state.inspect_scroll_y, 4);
+}
+
+#[test]
+fn inspect_position_resets_with_view_changes() {
+    let mut state = AppState::default();
+    state.apply(Action::CommitBatchLoaded {
+        rows: vec![row("a")],
+        all_loaded: true,
+    });
+
+    state.apply(Action::OpenInspect);
+    state.apply(Action::SetInspectMetrics {
+        line_count: 10,
+        visible_height: 4,
+    });
+    state.apply(Action::MoveInspectDown(8));
+
     state.apply(Action::CloseInspect);
+    assert_eq!(state.inspect_cursor_y, 0);
     assert_eq!(state.inspect_scroll_y, 0);
     assert_eq!(state.inspect_max_scroll_y, 0);
+    assert_eq!(state.inspect_line_count, 0);
+    assert_eq!(state.inspect_visible_height, 0);
+
+    state.apply(Action::OpenInspect);
+    assert_eq!(state.inspect_cursor_y, 0);
+    assert_eq!(state.inspect_scroll_y, 0);
+    assert_eq!(state.inspect_max_scroll_y, 0);
+    assert_eq!(state.inspect_line_count, 0);
+    assert_eq!(state.inspect_visible_height, 0);
 }
 
 #[test]

@@ -62,15 +62,55 @@ impl CommitRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DiffStat {
-    pub files_changed: usize,
+pub struct CommitSignature {
+    pub name: String,
+    pub email: String,
+    pub time: i64,
+    pub offset_seconds: i32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DiffStatFile {
+    pub path: String,
     pub insertions: usize,
     pub deletions: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DiffStat {
+    pub files_changed: usize,
+    pub insertions: usize,
+    pub deletions: usize,
+    pub files: Vec<DiffStatFile>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Patch {
+    pub lines: Vec<PatchLine>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PatchLine {
+    pub kind: PatchLineKind,
+    pub text: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PatchLineKind {
+    FileHeader,
+    HunkHeader,
+    Context,
+    Addition,
+    Deletion,
+    Meta,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommitDetails {
     pub row: CommitRow,
+    pub author: CommitSignature,
+    pub committer: CommitSignature,
     pub message: String,
     pub diffstat: DiffStat,
+    pub patch: Patch,
 }

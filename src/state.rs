@@ -32,7 +32,7 @@ pub enum Action {
         rows: Vec<CommitRow>,
         all_loaded: bool,
     },
-    CommitDetailsLoaded(CommitDetails),
+    CommitDetailsLoaded(Box<CommitDetails>),
     CommitDetailsFailed {
         id: CommitId,
         message: String,
@@ -45,6 +45,14 @@ pub enum Action {
     ScrollRight(usize),
     ScrollLeft(usize),
     SetMaxScrollX(usize),
+    MoveInspectDown(usize),
+    MoveInspectUp(usize),
+    JumpInspectTop,
+    JumpInspectEnd,
+    SetInspectMetrics {
+        line_count: usize,
+        visible_height: usize,
+    },
     ScrollInspectDown(usize),
     ScrollInspectUp(usize),
     SetInspectMaxScrollY(usize),
@@ -84,7 +92,10 @@ pub struct AppState {
     pub viewport_height: usize,
     pub search_mode: SearchMode,
     pub search_query: String,
+    pub inspect_cursor_y: usize,
     pub inspect_scroll_y: usize,
+    pub inspect_line_count: usize,
+    pub inspect_visible_height: usize,
     pub inspect_max_scroll_y: usize,
 }
 
@@ -105,7 +116,10 @@ impl Default for AppState {
             viewport_height: 0,
             search_mode: SearchMode::Inactive,
             search_query: String::new(),
+            inspect_cursor_y: 0,
             inspect_scroll_y: 0,
+            inspect_line_count: 0,
+            inspect_visible_height: 0,
             inspect_max_scroll_y: 0,
         }
     }
@@ -138,7 +152,7 @@ impl AppState {
             }
             Action::CommitDetailsLoaded(details) => {
                 if matches!(&self.view, ViewMode::Inspect(id) if id == &details.row.id) {
-                    self.details = Some(details);
+                    self.details = Some(*details);
                     self.details_error = None;
                 }
                 Vec::new()
@@ -183,20 +197,46 @@ impl AppState {
                 self.scroll_x = self.scroll_x.min(self.max_scroll_x);
                 Vec::new()
             }
-            Action::ScrollInspectDown(amount) => {
-                self.inspect_scroll_y = self
-                    .inspect_scroll_y
+            Action::MoveInspectDown(amount) | Action::ScrollInspectDown(amount) => {
+                self.inspect_cursor_y = self
+                    .inspect_cursor_y
                     .saturating_add(amount)
-                    .min(self.inspect_max_scroll_y);
+                    .min(self.inspect_max_cursor_y());
+                self.follow_inspect_cursor();
                 Vec::new()
             }
-            Action::ScrollInspectUp(amount) => {
-                self.inspect_scroll_y = self.inspect_scroll_y.saturating_sub(amount);
+            Action::MoveInspectUp(amount) | Action::ScrollInspectUp(amount) => {
+                self.inspect_cursor_y = self.inspect_cursor_y.saturating_sub(amount);
+                self.follow_inspect_cursor();
+                Vec::new()
+            }
+            Action::JumpInspectTop => {
+                self.inspect_cursor_y = 0;
+                self.follow_inspect_cursor();
+                Vec::new()
+            }
+            Action::JumpInspectEnd => {
+                self.inspect_cursor_y = self.inspect_max_cursor_y();
+                self.follow_inspect_cursor();
+                Vec::new()
+            }
+            Action::SetInspectMetrics {
+                line_count,
+                visible_height,
+            } => {
+                self.inspect_line_count = line_count;
+                self.inspect_visible_height = visible_height;
+                self.inspect_max_scroll_y = line_count.saturating_sub(visible_height);
+                self.clamp_inspect();
                 Vec::new()
             }
             Action::SetInspectMaxScrollY(max_scroll_y) => {
                 self.inspect_max_scroll_y = max_scroll_y;
-                self.inspect_scroll_y = self.inspect_scroll_y.min(self.inspect_max_scroll_y);
+                if self.inspect_line_count == 0 && max_scroll_y > 0 {
+                    self.inspect_line_count = max_scroll_y + 1;
+                    self.inspect_visible_height = 1;
+                }
+                self.clamp_inspect();
                 Vec::new()
             }
             Action::BeginSearch => {
@@ -243,8 +283,7 @@ impl AppState {
                     self.view = ViewMode::Inspect(row.id.clone());
                     self.details = None;
                     self.details_error = None;
-                    self.inspect_scroll_y = 0;
-                    self.inspect_max_scroll_y = 0;
+                    self.reset_inspect_position();
                 }
                 Vec::new()
             }
@@ -252,8 +291,7 @@ impl AppState {
                 self.view = ViewMode::Log;
                 self.details = None;
                 self.details_error = None;
-                self.inspect_scroll_y = 0;
-                self.inspect_max_scroll_y = 0;
+                self.reset_inspect_position();
                 Vec::new()
             }
             Action::Resize { width, height } => {
@@ -271,6 +309,52 @@ impl AppState {
         } else {
             self.selected = self.selected.min(self.rows.len() - 1);
         }
+    }
+
+    fn reset_inspect_position(&mut self) {
+        self.inspect_cursor_y = 0;
+        self.inspect_scroll_y = 0;
+        self.inspect_line_count = 0;
+        self.inspect_visible_height = 0;
+        self.inspect_max_scroll_y = 0;
+    }
+
+    fn inspect_max_cursor_y(&self) -> usize {
+        self.inspect_line_count.saturating_sub(1)
+    }
+
+    fn clamp_inspect(&mut self) {
+        if self.inspect_line_count == 0 {
+            self.inspect_cursor_y = 0;
+            self.inspect_scroll_y = 0;
+            self.inspect_max_scroll_y = 0;
+            return;
+        }
+
+        self.inspect_max_scroll_y = self
+            .inspect_max_scroll_y
+            .min(self.inspect_line_count.saturating_sub(1));
+        self.inspect_cursor_y = self.inspect_cursor_y.min(self.inspect_max_cursor_y());
+        self.follow_inspect_cursor();
+    }
+
+    fn follow_inspect_cursor(&mut self) {
+        if self.inspect_line_count == 0 {
+            self.inspect_cursor_y = 0;
+            self.inspect_scroll_y = 0;
+            return;
+        }
+
+        let visible_height = self.inspect_visible_height.max(1);
+        if self.inspect_cursor_y < self.inspect_scroll_y {
+            self.inspect_scroll_y = self.inspect_cursor_y;
+        } else {
+            let bottom = self.inspect_scroll_y.saturating_add(visible_height - 1);
+            if self.inspect_cursor_y > bottom {
+                self.inspect_scroll_y = self.inspect_cursor_y + 1 - visible_height;
+            }
+        }
+        self.inspect_scroll_y = self.inspect_scroll_y.min(self.inspect_max_scroll_y);
     }
 
     fn select_search_match(&mut self, direction: Direction, start: MatchStart) {

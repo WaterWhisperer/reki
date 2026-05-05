@@ -29,7 +29,7 @@ pub enum WorkerMessage {
         rows: Vec<CommitRow>,
         all_loaded: bool,
     },
-    CommitDetailsLoaded(crate::model::CommitDetails),
+    CommitDetailsLoaded(Box<crate::model::CommitDetails>),
     CommitDetailsFailed {
         id: CommitId,
         message: String,
@@ -108,7 +108,7 @@ fn drain_commands(repo: &Repo, sender: &Sender<WorkerMessage>, commands: &Receiv
 fn handle_command(repo: &Repo, sender: &Sender<WorkerMessage>, command: WorkerCommand) -> bool {
     let message = match command {
         WorkerCommand::LoadDetails(id) => match repo.commit_details(&id) {
-            Ok(details) => WorkerMessage::CommitDetailsLoaded(details),
+            Ok(details) => WorkerMessage::CommitDetailsLoaded(Box::new(details)),
             Err(error) => WorkerMessage::CommitDetailsFailed {
                 id,
                 message: error.to_string(),

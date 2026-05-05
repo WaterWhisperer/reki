@@ -7,7 +7,7 @@
 - Add reducer-driven state for selection, scrolling, loading, and view transitions.
 - Move commit loading to a worker thread with typed messages.
 - Render a dense single-pane log with graph, hash, date, author, refs, and summary.
-- Add Enter-opened commit inspect view with metadata and diffstat.
+- Add Enter-opened commit inspect view with metadata, diffstat, and bounded patch details.
 - Search loaded commits with `/`, `n`, and `N`.
 
 ## Verification Goals
@@ -22,7 +22,7 @@
 
 - Search refinements such as match highlighting and path-aware/global search.
 - In-app help view opened with `h`.
-- Full patch view with large-file and binary-file safeguards.
+- Dedicated patch navigation, path focus, and richer inspect highlighting.
 - Optional revision/pathspec arguments.
 - Broader platform validation beyond Unix-first development.
 - Structured diagnostics with `tracing` if worker/UI interactions become hard to debug.
