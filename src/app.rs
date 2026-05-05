@@ -117,26 +117,24 @@ impl App {
                 self.state.apply(Action::CloseInspect);
             }
             KeyCode::Char('j') | KeyCode::Down => {
-                self.state.apply(Action::ScrollInspectDown(1));
+                self.state.apply(Action::MoveInspectDown(1));
             }
             KeyCode::Char('k') | KeyCode::Up => {
-                self.state.apply(Action::ScrollInspectUp(1));
+                self.state.apply(Action::MoveInspectUp(1));
             }
             KeyCode::Char(' ') | KeyCode::PageDown => {
-                self.state
-                    .apply(Action::ScrollInspectDown(self.state.page_height));
+                let page = self.state.inspect_visible_height.max(1);
+                self.state.apply(Action::MoveInspectDown(page));
             }
             KeyCode::Char('-') | KeyCode::Char('a') | KeyCode::PageUp => {
-                self.state
-                    .apply(Action::ScrollInspectUp(self.state.page_height));
+                let page = self.state.inspect_visible_height.max(1);
+                self.state.apply(Action::MoveInspectUp(page));
             }
             KeyCode::Char('g') | KeyCode::Home => {
-                self.state
-                    .apply(Action::ScrollInspectUp(self.state.inspect_scroll_y));
+                self.state.apply(Action::JumpInspectTop);
             }
             KeyCode::Char('G') | KeyCode::End => {
-                self.state
-                    .apply(Action::ScrollInspectDown(self.state.inspect_max_scroll_y));
+                self.state.apply(Action::JumpInspectEnd);
             }
             _ => {}
         }

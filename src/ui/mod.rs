@@ -96,7 +96,7 @@ fn render_status(frame: &mut Frame, state: &AppState, area: Rect) {
 
 fn status_text(state: &AppState) -> String {
     match state.view {
-        ViewMode::Inspect(_) => "j/k:scroll  q:close".to_string(),
+        ViewMode::Inspect(_) => inspect_status_text(state),
         ViewMode::Log => match state.search_mode {
             SearchMode::Editing => format!("/{}", state.search_query),
             SearchMode::Active if !state.search_query.is_empty() => {
@@ -107,6 +107,17 @@ fn status_text(state: &AppState) -> String {
             }
         },
     }
+}
+
+fn inspect_status_text(state: &AppState) -> String {
+    if state.inspect_line_count == 0 {
+        return "j/k:scroll  q:close  no content".to_string();
+    }
+
+    let line = state.inspect_cursor_y + 1;
+    let total = state.inspect_line_count;
+    let percent = line.saturating_mul(100) / total;
+    format!("j/k:scroll  q:close  line {line} of {total}  {percent}%")
 }
 
 #[cfg(test)]
@@ -167,6 +178,15 @@ mod tests {
         state.apply(Action::FinishSearch);
         state.apply(Action::OpenInspect);
 
-        assert_eq!(status_text(&state), "j/k:scroll  q:close");
+        state.apply(Action::SetInspectMetrics {
+            line_count: 20,
+            visible_height: 5,
+        });
+        state.apply(Action::MoveInspectDown(4));
+
+        assert_eq!(
+            status_text(&state),
+            "j/k:scroll  q:close  line 5 of 20  25%"
+        );
     }
 }
