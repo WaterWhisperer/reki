@@ -1,14 +1,10 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    process::Command,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use reki::{
-    git::Repo,
-    model::{CommitDetails, CommitId},
-};
+use reki::git::Repo;
+use reki::model::{CommitDetails, CommitId};
 
 pub(crate) struct TempRepo {
     pub(crate) path: PathBuf,
@@ -54,10 +50,11 @@ pub(crate) fn init_repo(repo: &TempRepo) {
     git(&repo.path, &["config", "user.email", "test@example.com"]);
     git(&repo.path, &["config", "commit.gpgSign", "false"]);
     git(&repo.path, &["config", "diff.renames", "true"]);
-    git(
-        &repo.path,
-        &["config", "core.bigFileThreshold", "536870912"],
-    );
+    git(&repo.path, &[
+        "config",
+        "core.bigFileThreshold",
+        "536870912",
+    ]);
 }
 
 pub(crate) fn commit_details(repo: &TempRepo) -> CommitDetails {

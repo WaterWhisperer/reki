@@ -1,6 +1,7 @@
 use std::fmt;
 
-use time::{OffsetDateTime, UtcOffset, macros::format_description};
+use time::macros::format_description;
+use time::{OffsetDateTime, UtcOffset};
 
 use crate::model::{CommitId, CommitRow, RefDecoration as RowRefDecoration, RefKind as RowRefKind};
 

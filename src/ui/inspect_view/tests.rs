@@ -1,11 +1,11 @@
-use ratatui::{layout::Rect, style::Color, text::Line};
+use ratatui::layout::Rect;
+use ratatui::style::Color;
+use ratatui::text::Line;
 
-use super::{
-    content::{details_lines, format_signature_time, row_lines},
-    diffstat::{MAX_DIFFSTAT_FILE_LINES, diffstat_file_lines},
-    metrics::{cursor_highlight_area, inspect_max_scroll_y},
-    patch::patch_line,
-};
+use super::content::{details_lines, format_signature_time, row_lines};
+use super::diffstat::{MAX_DIFFSTAT_FILE_LINES, diffstat_file_lines};
+use super::metrics::{cursor_highlight_area, inspect_max_scroll_y};
+use super::patch::patch_line;
 use crate::model::{
     CommitDetails, CommitId, CommitRow, CommitSignature, DiffStat, DiffStatFile, Patch, PatchLine,
     PatchLineKind, RefDecoration, RefKind,

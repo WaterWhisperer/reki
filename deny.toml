@@ -1,10 +1,8 @@
-[licenses]
-allow = [
-    "Apache-2.0",
-    "BSD-3-Clause",
-    "MIT",
-    "MPL-2.0",
-    "Unicode-3.0",
-    "Zlib",
+[bans]
+skip = [
+  { crate = "hashbrown@0.14.5", reason = "pulled transitively by gix-tempfile through dashmap; the rest of the graph already uses hashbrown 0.16" },
 ]
+
+[licenses]
+allow = ["Apache-2.0", "BSD-3-Clause", "MIT", "MPL-2.0", "Unicode-3.0", "Zlib"]
 confidence-threshold = 0.8

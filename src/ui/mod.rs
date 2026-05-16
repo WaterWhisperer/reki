@@ -4,18 +4,14 @@ mod log_view;
 use std::io::{self, Stdout};
 
 use anyhow::Result;
-use crossterm::{
-    execute,
-    terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
-};
-use ratatui::{
-    Frame, Terminal,
-    layout::{Constraint, Direction, Layout, Rect},
-    prelude::CrosstermBackend,
-    style::{Color, Style},
-    text::Line,
-    widgets::Paragraph,
-};
+use crossterm::execute;
+use crossterm::terminal::{self, EnterAlternateScreen, LeaveAlternateScreen};
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::prelude::CrosstermBackend;
+use ratatui::style::{Color, Style};
+use ratatui::text::Line;
+use ratatui::widgets::Paragraph;
+use ratatui::{Frame, Terminal};
 
 use crate::app::App;
 use crate::state::{Action, AppState, SearchMode, ViewMode};
@@ -101,10 +97,10 @@ fn status_text(state: &AppState) -> String {
             SearchMode::Editing => format!("/{}", state.search_query),
             SearchMode::Active if !state.search_query.is_empty() => {
                 format!("/{}  n:next N:previous", state.search_query)
-            }
+            },
             SearchMode::Active | SearchMode::Inactive => {
                 "j/k:move  Enter:inspect  /:search  q:quit".to_string()
-            }
+            },
         },
     }
 }
@@ -123,10 +119,8 @@ fn inspect_status_text(state: &AppState) -> String {
 #[cfg(test)]
 mod tests {
     use super::status_text;
-    use crate::{
-        model::{CommitId, CommitRow},
-        state::{Action, AppState},
-    };
+    use crate::model::{CommitId, CommitRow};
+    use crate::state::{Action, AppState};
 
     fn row(summary: &str) -> CommitRow {
         CommitRow {

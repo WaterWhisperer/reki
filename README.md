@@ -15,14 +15,14 @@ Inspired by [tig](https://github.com/jonas/tig), [yazi](https://github.com/sxyaz
 
 ## Usage
 
-```sh
+```shell
 cd /path/to/your/git/repo
 reki
 ```
 
 or
 
-```sh
+```shell
 reki /path/to/your/git/repo
 ```
 
@@ -45,7 +45,7 @@ reki /path/to/your/git/repo
 
 ## Building from source
 
-```sh
+```shell
 git clone https://github.com/WaterWhisperer/reki.git
 cd reki
 cargo build --release
@@ -53,10 +53,14 @@ cargo build --release
 
 ## Development
 
-```sh
-cargo fmt -- --check
-cargo clippy -- -D warnings
-cargo test
+Rust formatting uses nightly rustfmt because `rustfmt.toml` enables unstable formatting options. The default toolchain remains stable for build, clippy, and tests.
+
+```shell
+cargo +nightly fmt -- --check
+taplo fmt --check
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked
+cargo +1.88.0 test --locked
 cargo deny check
 ```
 
@@ -64,7 +68,7 @@ cargo deny check
 
 Reki uses [git-cliff](https://github.com/orhun/git-cliff) for release notes.
 
-```sh
+```shell
 cargo install git-cliff
 git cliff --unreleased
 git cliff --output CHANGELOG.md

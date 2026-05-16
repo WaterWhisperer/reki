@@ -88,10 +88,13 @@ fn commit_details_render_merge_patch_from_first_parent() {
     fs::write(repo.path.join("main.txt"), "main\n").expect("main fixture should be updated");
     git(&repo.path, &["add", "."]);
     git(&repo.path, &["commit", "-m", "main change"]);
-    git(
-        &repo.path,
-        &["merge", "--no-ff", "side", "-m", "merge side"],
-    );
+    git(&repo.path, &[
+        "merge",
+        "--no-ff",
+        "side",
+        "-m",
+        "merge side",
+    ]);
 
     let details = commit_details(&repo);
     let patch = patch_lines(&details);
@@ -168,7 +171,7 @@ fn commit_details_match_git_for_zero_length_hunk_ranges() {
                 .expect("fixture file should be updated"),
             None => {
                 git(&repo.path, &["rm", "file.txt"]);
-            }
+            },
         }
         git(&repo.path, &["add", "."]);
         git(&repo.path, &["commit", "-m", name]);

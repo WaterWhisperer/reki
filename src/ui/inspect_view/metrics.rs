@@ -1,10 +1,8 @@
-use ratatui::{
-    Frame,
-    layout::Rect,
-    style::{Color, Style},
-    text::Line,
-    widgets::{Paragraph, Wrap},
-};
+use ratatui::Frame;
+use ratatui::layout::Rect;
+use ratatui::style::{Color, Style};
+use ratatui::text::Line;
+use ratatui::widgets::{Paragraph, Wrap};
 
 pub(super) fn highlight_visible_cursor(
     frame: &mut Frame,

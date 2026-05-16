@@ -16,7 +16,7 @@
 - Unit-test reducer behavior without terminal or Git IO.
 - Integration-test repository loading with temporary Git repositories.
 - Snapshot stable row/inspect rendering where textual output should not drift.
-- Keep CI on `cargo fmt -- --check`, `cargo clippy -- -D warnings`, and `cargo test`.
+- Keep CI on nightly rustfmt, stable clippy/test, and an explicit MSRV test.
 
 ## Later
 

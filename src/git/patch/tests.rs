@@ -1,4 +1,5 @@
-use std::{ffi::OsStr, process::Command};
+use std::ffi::OsStr;
+use std::process::Command;
 
 use super::{GIT_NO_LAZY_FETCH, GIT_REPO_ENV_VARS, configure_git_environment, decode_patch_line};
 

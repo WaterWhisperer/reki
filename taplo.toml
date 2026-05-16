@@ -1,0 +1,13 @@
+include = [
+  "Cargo.toml",
+  "deny.toml",
+  "rust-toolchain.toml",
+  "rustfmt.toml",
+  "taplo.toml",
+]
+
+[[rule]]
+include = ["Cargo.toml", "rust-toolchain.toml", "rustfmt.toml", "taplo.toml"]
+
+[rule.formatting]
+align_entries = true

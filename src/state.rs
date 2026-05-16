@@ -1,7 +1,5 @@
-use crate::{
-    model::{CommitDetails, CommitId, CommitRow},
-    search::{self, Direction, MatchStart},
-};
+use crate::model::{CommitDetails, CommitId, CommitRow};
+use crate::search::{self, Direction, MatchStart};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LoadStatus {
@@ -131,7 +129,7 @@ impl AppState {
             Action::Quit => {
                 self.should_quit = true;
                 Vec::new()
-            }
+            },
             Action::StartLoading => {
                 if self.load_status == LoadStatus::Complete {
                     Vec::new()
@@ -139,7 +137,7 @@ impl AppState {
                     self.load_status = LoadStatus::Loading;
                     vec![Effect::LoadNextBatch]
                 }
-            }
+            },
             Action::CommitBatchLoaded { rows, all_loaded } => {
                 self.rows.extend(rows);
                 self.load_status = if all_loaded {
@@ -149,54 +147,54 @@ impl AppState {
                 };
                 self.clamp_selection();
                 Vec::new()
-            }
+            },
             Action::CommitDetailsLoaded(details) => {
                 if matches!(&self.view, ViewMode::Inspect(id) if id == &details.row.id) {
                     self.details = Some(*details);
                     self.details_error = None;
                 }
                 Vec::new()
-            }
+            },
             Action::CommitDetailsFailed { id, message } => {
                 if matches!(&self.view, ViewMode::Inspect(current) if current == &id) {
                     self.details_error = Some(message);
                 }
                 Vec::new()
-            }
+            },
             Action::LoadFailed(message) => {
                 self.load_status = LoadStatus::Failed(message);
                 Vec::new()
-            }
+            },
             Action::MoveDown(amount) => {
                 let max = self.rows.len().saturating_sub(1);
                 self.selected = self.selected.saturating_add(amount).min(max);
                 Vec::new()
-            }
+            },
             Action::MoveUp(amount) => {
                 self.selected = self.selected.saturating_sub(amount);
                 Vec::new()
-            }
+            },
             Action::JumpTop => {
                 self.selected = 0;
                 Vec::new()
-            }
+            },
             Action::JumpEnd => {
                 self.selected = self.rows.len().saturating_sub(1);
                 Vec::new()
-            }
+            },
             Action::ScrollRight(amount) => {
                 self.scroll_x = self.scroll_x.saturating_add(amount).min(self.max_scroll_x);
                 Vec::new()
-            }
+            },
             Action::ScrollLeft(amount) => {
                 self.scroll_x = self.scroll_x.saturating_sub(amount);
                 Vec::new()
-            }
+            },
             Action::SetMaxScrollX(max_scroll_x) => {
                 self.max_scroll_x = max_scroll_x;
                 self.scroll_x = self.scroll_x.min(self.max_scroll_x);
                 Vec::new()
-            }
+            },
             Action::MoveInspectDown(amount) | Action::ScrollInspectDown(amount) => {
                 self.inspect_cursor_y = self
                     .inspect_cursor_y
@@ -204,22 +202,22 @@ impl AppState {
                     .min(self.inspect_max_cursor_y());
                 self.follow_inspect_cursor();
                 Vec::new()
-            }
+            },
             Action::MoveInspectUp(amount) | Action::ScrollInspectUp(amount) => {
                 self.inspect_cursor_y = self.inspect_cursor_y.saturating_sub(amount);
                 self.follow_inspect_cursor();
                 Vec::new()
-            }
+            },
             Action::JumpInspectTop => {
                 self.inspect_cursor_y = 0;
                 self.follow_inspect_cursor();
                 Vec::new()
-            }
+            },
             Action::JumpInspectEnd => {
                 self.inspect_cursor_y = self.inspect_max_cursor_y();
                 self.follow_inspect_cursor();
                 Vec::new()
-            }
+            },
             Action::SetInspectMetrics {
                 line_count,
                 visible_height,
@@ -229,7 +227,7 @@ impl AppState {
                 self.inspect_max_scroll_y = line_count.saturating_sub(visible_height);
                 self.clamp_inspect();
                 Vec::new()
-            }
+            },
             Action::SetInspectMaxScrollY(max_scroll_y) => {
                 self.inspect_max_scroll_y = max_scroll_y;
                 if self.inspect_line_count == 0 && max_scroll_y > 0 {
@@ -238,24 +236,24 @@ impl AppState {
                 }
                 self.clamp_inspect();
                 Vec::new()
-            }
+            },
             Action::BeginSearch => {
                 self.search_mode = SearchMode::Editing;
                 self.search_query.clear();
                 Vec::new()
-            }
+            },
             Action::PushSearchChar(ch) => {
                 if self.search_mode == SearchMode::Editing {
                     self.search_query.push(ch);
                 }
                 Vec::new()
-            }
+            },
             Action::PopSearchChar => {
                 if self.search_mode == SearchMode::Editing {
                     self.search_query.pop();
                 }
                 Vec::new()
-            }
+            },
             Action::FinishSearch => {
                 if self.search_query.is_empty() {
                     self.search_mode = SearchMode::Inactive;
@@ -264,20 +262,20 @@ impl AppState {
                     self.select_search_match(Direction::Forward, MatchStart::IncludeSelected);
                 }
                 Vec::new()
-            }
+            },
             Action::CancelSearch => {
                 self.search_mode = SearchMode::Inactive;
                 self.search_query.clear();
                 Vec::new()
-            }
+            },
             Action::FindNext => {
                 self.select_search_match(Direction::Forward, MatchStart::ExcludeSelected);
                 Vec::new()
-            }
+            },
             Action::FindPrevious => {
                 self.select_search_match(Direction::Backward, MatchStart::ExcludeSelected);
                 Vec::new()
-            }
+            },
             Action::OpenInspect => {
                 if let Some(row) = self.rows.get(self.selected) {
                     self.view = ViewMode::Inspect(row.id.clone());
@@ -286,20 +284,20 @@ impl AppState {
                     self.reset_inspect_position();
                 }
                 Vec::new()
-            }
+            },
             Action::CloseInspect => {
                 self.view = ViewMode::Log;
                 self.details = None;
                 self.details_error = None;
                 self.reset_inspect_position();
                 Vec::new()
-            }
+            },
             Action::Resize { width, height } => {
                 self.viewport_width = width;
                 self.viewport_height = height;
                 self.page_height = height.saturating_sub(2);
                 Vec::new()
-            }
+            },
         }
     }
 

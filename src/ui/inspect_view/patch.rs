@@ -1,7 +1,5 @@
-use ratatui::{
-    style::{Color, Modifier, Style},
-    text::Line,
-};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::Line;
 
 use crate::model::{PatchLine, PatchLineKind};
 
@@ -45,7 +43,7 @@ fn patch_line_style(kind: PatchLineKind, text: &str) -> Style {
         PatchLineKind::Deletion => Style::default().fg(Color::Red),
         PatchLineKind::Meta if text.starts_with("--- ") || text.starts_with("+++ ") => {
             Style::default().fg(Color::Yellow)
-        }
+        },
         PatchLineKind::Meta => Style::default().fg(Color::Blue),
     }
 }

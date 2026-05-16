@@ -1,10 +1,8 @@
-use ratatui::{
-    Frame,
-    layout::Rect,
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState},
-};
+use ratatui::Frame;
+use ratatui::layout::Rect;
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, List, ListItem, ListState};
 use unicode_truncate::UnicodeTruncateStr;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
@@ -29,7 +27,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     let search_query = match app.state.search_mode {
         SearchMode::Active if !app.state.search_query.is_empty() => {
             Some(app.state.search_query.as_str())
-        }
+        },
         SearchMode::Active | SearchMode::Editing | SearchMode::Inactive => None,
     };
 
@@ -281,10 +279,8 @@ fn search_match_style(base_style: Style) -> Style {
 
 #[cfg(test)]
 mod tests {
-    use ratatui::{
-        style::{Color, Style},
-        text::Span,
-    };
+    use ratatui::style::{Color, Style};
+    use ratatui::text::Span;
 
     use super::{build_commit_line, highlight_searchable_text};
     use crate::model::{CommitId, CommitRow};

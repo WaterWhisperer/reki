@@ -1,5 +1,8 @@
 use anyhow::Result;
-use reki::{app::App, cli::Args, event::EventHandler, ui::Tui};
+use reki::app::App;
+use reki::cli::Args;
+use reki::event::EventHandler;
+use reki::ui::Tui;
 
 fn main() -> Result<()> {
     let args = Args::parse_from(std::env::args()).map_err(|err| anyhow::anyhow!("{err:?}"))?;

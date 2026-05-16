@@ -1,15 +1,11 @@
-use ratatui::{
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-};
-use time::{OffsetDateTime, UtcOffset, macros::format_description};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
+use time::macros::format_description;
+use time::{OffsetDateTime, UtcOffset};
 
+use super::diffstat::{diffstat_file_lines, diffstat_summary_line};
+use super::patch::patch_line;
 use crate::model::{CommitDetails, CommitRow, CommitSignature, RefDecoration, RefKind};
-
-use super::{
-    diffstat::{diffstat_file_lines, diffstat_summary_line},
-    patch::patch_line,
-};
 
 pub(super) fn details_lines(details: &CommitDetails) -> Vec<Line<'static>> {
     let mut lines = details_header_lines(details);
@@ -168,7 +164,8 @@ fn parents_text(row: &CommitRow) -> String {
 
 pub(super) fn format_signature_time(signature: &CommitSignature) -> String {
     const FMT: &[time::format_description::BorrowedFormatItem<'_>] = format_description!(
-        "[weekday repr:short] [month repr:short] [day padding:none] [hour]:[minute]:[second] [year] [offset_hour sign:mandatory][offset_minute]"
+        "[weekday repr:short] [month repr:short] [day padding:none] [hour]:[minute]:[second] \
+         [year] [offset_hour sign:mandatory][offset_minute]"
     );
 
     let Ok(utc) = OffsetDateTime::from_unix_timestamp(signature.time) else {

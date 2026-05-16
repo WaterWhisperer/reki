@@ -1,7 +1,5 @@
-use std::{
-    sync::mpsc::{self, Receiver, Sender},
-    thread,
-};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::thread;
 
 use anyhow::Result;
 
@@ -55,7 +53,7 @@ fn run(repo: Repo, sender: &Sender<WorkerMessage>, commands: &Receiver<WorkerCom
         Err(error) => {
             let _ = sender.send(WorkerMessage::LoadFailed(error.to_string()));
             return;
-        }
+        },
     };
 
     loop {
@@ -65,7 +63,7 @@ fn run(repo: Repo, sender: &Sender<WorkerMessage>, commands: &Receiver<WorkerCom
             Err(error) => {
                 let _ = sender.send(WorkerMessage::LoadFailed(error.to_string()));
                 return;
-            }
+            },
         }
     }
 
@@ -135,11 +133,11 @@ impl From<WorkerMessage> for Action {
         match message {
             WorkerMessage::CommitBatchLoaded { rows, all_loaded } => {
                 Action::CommitBatchLoaded { rows, all_loaded }
-            }
+            },
             WorkerMessage::CommitDetailsLoaded(details) => Action::CommitDetailsLoaded(details),
             WorkerMessage::CommitDetailsFailed { id, message } => {
                 Action::CommitDetailsFailed { id, message }
-            }
+            },
             WorkerMessage::LoadFailed(message) => Action::LoadFailed(message),
         }
     }
@@ -166,10 +164,9 @@ mod tests {
         let mut graph = Graph::default();
         let rows = rows_from_commits_with_graph(
             vec![
-                commit(
-                    "1111111111111111111111111111111111111111",
-                    vec![CommitId::new("2222222222222222222222222222222222222222")],
-                ),
+                commit("1111111111111111111111111111111111111111", vec![
+                    CommitId::new("2222222222222222222222222222222222222222"),
+                ]),
                 commit("2222222222222222222222222222222222222222", Vec::new()),
             ],
             &mut graph,

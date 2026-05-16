@@ -1,9 +1,7 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    process::Command,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::Repo;
 

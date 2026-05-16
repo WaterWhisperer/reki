@@ -1,16 +1,27 @@
 [package]
-name        = "reki"
-version     = "0.1.0"
-edition     = "2024"
-license     = "MIT OR Apache-2.0"
-description = "A blazingly fast and aesthetic git log viewer"
-repository  = "https://github.com/WaterWhisperer/reki"
+name         = "reki"
+version      = "0.1.0"
+edition      = "2024"
+rust-version = "1.88.0"
+license      = "MIT OR Apache-2.0"
+description  = "A blazingly fast and aesthetic git log viewer"
+repository   = "https://github.com/WaterWhisperer/reki"
 
 [dependencies]
-ratatui          = { version = "0.30", default-features = false, features = ["crossterm", "unstable-rendered-line-info"] }
-crossterm        = { version = "0.29", default-features = false, features = ["events", "windows"] }
-gix              = { version = "0.83", default-features = false, features = ["basic", "max-performance-safe", "sha1"] }
-anyhow           = "1"
-time             = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
+ratatui = { version = "0.30", default-features = false, features = [
+  "crossterm",
+  "unstable-rendered-line-info",
+] }
+crossterm = { version = "0.29", default-features = false, features = [
+  "events",
+  "windows",
+] }
+gix = { version = "0.83", default-features = false, features = [
+  "basic",
+  "max-performance-safe",
+  "sha1",
+] }
+anyhow = "1"
+time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
 unicode-truncate = "2.0"
-unicode-width    = "0.2"
+unicode-width = "0.2"

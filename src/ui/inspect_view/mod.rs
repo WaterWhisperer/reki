@@ -6,24 +6,17 @@ mod patch;
 #[cfg(test)]
 mod tests;
 
-use ratatui::{
-    Frame,
-    layout::Rect,
-    style::{Color, Style},
-    text::Line,
-    widgets::{Block, Borders, Paragraph, Wrap},
-};
+use ratatui::Frame;
+use ratatui::layout::Rect;
+use ratatui::style::{Color, Style};
+use ratatui::text::Line;
+use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 
-use crate::{
-    app::App,
-    model::CommitId,
-    state::{Action, AppState, ViewMode},
-};
-
-use self::{
-    content::{details_lines, row_lines},
-    metrics::{highlight_visible_cursor, inspect_metrics},
-};
+use self::content::{details_lines, row_lines};
+use self::metrics::{highlight_visible_cursor, inspect_metrics};
+use crate::app::App;
+use crate::model::CommitId;
+use crate::state::{Action, AppState, ViewMode};
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     let id = match &app.state.view {

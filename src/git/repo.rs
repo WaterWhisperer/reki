@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use gix::{bstr::ByteSlice, traverse::commit::simple::CommitTimeOrder};
+use gix::bstr::ByteSlice;
+use gix::traverse::commit::simple::CommitTimeOrder;
 
 use super::commit::{CommitInfo, RefDecoration, RefKind};
 use super::patch::{commit_diffstat, commit_patch};

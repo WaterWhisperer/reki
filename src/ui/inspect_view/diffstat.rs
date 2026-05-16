@@ -1,7 +1,5 @@
-use ratatui::{
-    style::{Color, Style},
-    text::{Line, Span},
-};
+use ratatui::style::{Color, Style};
+use ratatui::text::{Line, Span};
 
 use crate::model::CommitDetails;
 

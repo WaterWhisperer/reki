@@ -17,7 +17,7 @@ impl Graph {
             None => {
                 self.columns.push(id.clone());
                 self.columns.len() - 1
-            }
+            },
         };
 
         let converging: Vec<usize> = self
@@ -42,10 +42,10 @@ impl Graph {
         match parents {
             [] => {
                 self.columns.remove(adjusted);
-            }
+            },
             [first] => {
                 self.columns[adjusted] = first.clone();
-            }
+            },
             [first, rest @ ..] => {
                 self.columns[adjusted] = first.clone();
                 let mut insert_at = adjusted + 1;
@@ -55,7 +55,7 @@ impl Graph {
                         insert_at += 1;
                     }
                 }
-            }
+            },
         }
 
         GraphRow { text }

@@ -1,7 +1,5 @@
-use std::{
-    io::{BufRead, BufReader},
-    process::{Command, Stdio},
-};
+use std::io::{BufRead, BufReader};
+use std::process::{Command, Stdio};
 
 use anyhow::{Context, Result, bail};
 
@@ -52,7 +50,7 @@ pub(crate) fn commit_patch(repo: &gix::Repository, commit: &gix::Commit<'_>) -> 
                 truncation_message =
                     Some("Patch omitted: file exceeds 1 MB display limit".to_string());
                 break;
-            }
+            },
         };
         if line.starts_with("diff --git ") {
             files_seen += 1;
@@ -93,7 +91,8 @@ pub(crate) fn commit_patch(repo: &gix::Repository, commit: &gix::Commit<'_>) -> 
 
 fn patch_truncated_message() -> String {
     format!(
-        "Patch truncated after {MAX_PATCH_LINES} lines, {MAX_PATCH_FILES} files, or {MAX_PATCH_BYTES} bytes"
+        "Patch truncated after {MAX_PATCH_LINES} lines, {MAX_PATCH_FILES} files, or \
+         {MAX_PATCH_BYTES} bytes"
     )
 }
 
@@ -128,7 +127,7 @@ pub(crate) fn commit_diffstat(
                 let _ = child.kill();
                 let _ = child.wait();
                 bail!("git show produced a numstat line over 1 MB");
-            }
+            },
         };
         let Some(file) = parse_numstat_line(&line) else {
             continue;
