@@ -1,6 +1,7 @@
 [bans]
 skip = [
   { crate = "hashbrown@0.14.5", reason = "pulled transitively by gix-tempfile through dashmap; the rest of the graph already uses hashbrown 0.16" },
+  { crate = "redox_syscall@0.5.18", reason = "pulled transitively by parking_lot_core while filetime/libredox uses redox_syscall 0.7" },
 ]
 
 [licenses]

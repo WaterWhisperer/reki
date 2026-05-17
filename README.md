@@ -61,6 +61,7 @@ taplo fmt --check
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
 cargo +1.88.0 test --locked
+cargo audit
 cargo deny check
 ```
 
