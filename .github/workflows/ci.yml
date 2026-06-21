@@ -9,7 +9,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
@@ -18,7 +18,7 @@ jobs:
   stable:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -28,7 +28,7 @@ jobs:
   msrv:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: msrv
         run: |
           msrv=$(sed -n 's/^rust-version *= *"\([^"]*\)".*/\1/p' Cargo.toml)
@@ -42,7 +42,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
