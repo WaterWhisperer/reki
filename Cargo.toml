@@ -16,7 +16,7 @@ crossterm = { version = "0.29", default-features = false, features = [
   "events",
   "windows",
 ] }
-gix = { version = "0.83", default-features = false, features = [
+gix = { version = "0.85", default-features = false, features = [
   "basic",
   "max-performance-safe",
   "sha1",
